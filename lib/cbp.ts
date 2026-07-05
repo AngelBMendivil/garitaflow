@@ -7,7 +7,7 @@ const MONITORED_PORTS = {
 const CBP_URL = 'https://bwt.cbp.gov/api/waittimes'
 const FETCH_TIMEOUT_MS = 10_000
 
-function parseIntOrNull(value) {
+function parseIntOrNull(value: unknown) {
   if (value == null) return null
   const str = String(value).trim()
   if (str === '' || str.toUpperCase() === 'N/A' || str === '0') return null
