@@ -84,7 +84,7 @@ export default function BorderCrossingView({ crossings }: Props) {
         />
         <RecommendationCard crossing={crossing}/>
         <ConfidenceCard crossing={crossing}/>
-        <AdBanner variant="rectangle" label="Publicidad"/>
+		<AdBanner variant="rectangle"/>
       </div>
     </>
   )
