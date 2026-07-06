@@ -4,6 +4,8 @@ import { Clock, X } from 'lucide-react'
 
 export default function ScheduleButton({ schedule }: { schedule: string }) {
   const [open, setOpen] = useState(false)
+  const lines = schedule.split('\n')
+
   return (
     <>
       <button
@@ -13,7 +15,6 @@ export default function ScheduleButton({ schedule }: { schedule: string }) {
         <Clock size={11}/>
         Horario
       </button>
-
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
@@ -32,7 +33,13 @@ export default function ScheduleButton({ schedule }: { schedule: string }) {
                 <X size={15}/>
               </button>
             </div>
-            <p className="text-[24px] font-bold text-brand-navy leading-tight">{schedule}</p>
+            <div className="flex flex-col gap-2">
+              {lines.map((line, i) => (
+                <p key={i} className={`text-brand-navy leading-tight ${i === 0 ? 'text-[22px] font-bold' : 'text-[14px] font-semibold'}`}>
+                  {line}
+                </p>
+              ))}
+            </div>
             <p className="text-[11px] text-surface-muted mt-3">Fuente: CBP.gov · Sujeto a cambios sin previo aviso</p>
           </div>
         </div>

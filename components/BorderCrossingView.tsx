@@ -9,17 +9,32 @@ import type { BorderCrossing } from '@/lib/types'
 
 interface Props { crossings: BorderCrossing[] }
 
+// PedWest: abierto 6:00 a.m. – 2:00 p.m. horario del Pacífico
+function isPedwestClosed(): boolean {
+  const hour = parseInt(
+    new Date().toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      hour: 'numeric',
+      hour12: false,
+    })
+  )
+  return hour < 6 || hour >= 14
+}
+
 const SCHEDULES: Record<string, string> = {
-  'SAN_YSIDRO-vehicle':    '24 hrs / 7 días',
+  'SAN_YSIDRO-vehicle':
+    'General / Ready Lane: 24 hrs / 7 días\nSENTRI (2da calle): 4:00 a.m. – 11:00 p.m.',
   'SAN_YSIDRO-pedestrian': '24 hrs / 7 días',
   'SAN_YSIDRO-pedwest':    '6:00 a.m. – 2:00 p.m.',
-  'OTAY-vehicle':          '24 hrs / 7 días',
-  'OTAY-pedestrian':       '24 hrs / 7 días',
+  'OTAY-vehicle':
+    'General / Ready Lane: 24 hrs / 7 días\nSENTRI: Lun–Jue: 4:00 a.m. – 10:00 p.m.\nVie–Dom: 4:00 a.m. – 12:00 a.m.',
+  'OTAY-pedestrian': '24 hrs / 7 días',
 }
 
 export default function BorderCrossingView({ crossings }: Props) {
   const [selected, setSelected] = useState(0)
   const crossing = crossings[selected]
+  const pedwestClosed = isPedwestClosed()
 
   if (!crossing) {
     return (
@@ -42,12 +57,10 @@ export default function BorderCrossingView({ crossings }: Props) {
 
   const vehicular = crossing.lanes.filter(l => l.category === 'vehicle')
 
-  // Peatonal: solo carril General, renombrado como "General / Ready Lane"
   const pedestrian = crossing.lanes
     .filter(l => l.category === 'pedestrian' && l.name === 'General')
     .map(l => ({ ...l, name: 'General / Ready Lane' }))
 
-  // PedWest: solo carril General, renombrado como "General / Ready Lane"
   const pedwest = crossing.lanes
     .filter(l => l.category === 'pedwest' && l.name === 'General')
     .map(l => ({ ...l, name: 'General / Ready Lane' }))
@@ -73,7 +86,7 @@ export default function BorderCrossingView({ crossings }: Props) {
 
       {/* Content */}
       <div className="px-4 py-4 flex flex-col gap-4">
-        <CrossingSummaryCard crossing={crossing}/>
+        <CrossingSummaryCard crossing={crossing} pedwestClosed={pedwestClosed}/>
         <AdBanner variant="banner"/>
         <LaneSection
           category="vehicle"
@@ -85,11 +98,12 @@ export default function BorderCrossingView({ crossings }: Props) {
           lanes={pedestrian}
           schedule={SCHEDULES[`${crossing.portCode}-pedestrian`]}
         />
-        {pedwest.length > 0 && (
+        {(pedwest.length > 0 || crossing.portCode === 'SAN_YSIDRO') && (
           <LaneSection
             category="pedwest"
             lanes={pedwest}
             schedule={SCHEDULES[`${crossing.portCode}-pedwest`]}
+            closed={crossing.portCode === 'SAN_YSIDRO' ? pedwestClosed : false}
           />
         )}
         <RecommendationCard crossing={crossing}/>
