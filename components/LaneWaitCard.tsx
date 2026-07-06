@@ -29,7 +29,13 @@ function LaneIcon({ icon }: { icon: LaneWaitTime['icon'] }) {
   )
 }
 
+function waitVariance(min: number): number {
+  return Math.max(5, Math.round(Math.sqrt(min) * 2.2))
+}
+
 export default function LaneWaitCard({ lane }: { lane: LaneWaitTime }) {
+  const v = lane.waitMinutes != null ? waitVariance(lane.waitMinutes) : null
+
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-surface-border last:border-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -44,6 +50,11 @@ export default function LaneWaitCard({ lane }: { lane: LaneWaitTime }) {
           {lane.waitMinutes != null ? `${lane.waitMinutes}` : '—'}
           <span className="text-[13px] font-medium ml-0.5">min</span>
         </span>
+        {lane.waitMinutes != null && v != null && (
+          <span className="text-[10px] text-surface-muted leading-none tabular-nums">
+            aprox. {lane.waitMinutes - v}–{lane.waitMinutes + v} min
+          </span>
+        )}
         <StatusChip status={lane.status} size="xs"/>
       </div>
     </div>
