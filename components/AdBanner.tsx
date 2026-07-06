@@ -1,61 +1,93 @@
 'use client'
+
 import { useState, useEffect } from 'react'
 
-type Variant = 'banner' | 'rectangle'
+// ─── Configuración de anuncios ────────────────────────────────────────────────
+// Agrega aquí los anuncios: { src: ruta de imagen, url: destino del clic }
+// Por defecto los anuncios dirigen al WhatsApp de GaritaFlow
+const WA_URL = 'https://wa.me/16196508063'
 
-const BANNER_IMAGES = [
-  '/ads/banner-1.jpg.png',
-  // agrega más: '/ads/banner-2.png'
+const BANNER_ADS = [
+  { src: '/ads/banner-1.jpg.png', url: WA_URL },
 ]
 
-const RECTANGLE_IMAGES = [
-  '/ads/rect-1.jpg.png',
-  // agrega más: '/ads/rect-2.png'
+const RECTANGLE_ADS = [
+  { src: '/ads/rect-1.jpg.png', url: WA_URL },
 ]
 
-export default function AdBanner({ variant = 'banner' }: { variant?: Variant }) {
-  const images = variant === 'rectangle' ? RECTANGLE_IMAGES : BANNER_IMAGES
+// ─── Tracking helper ──────────────────────────────────────────────────────────
+function trackAdClick(variant: string, index: number) {
+  if (typeof window !== 'undefined' && (window as any).dataLayer) {
+    ;(window as any).dataLayer.push({
+      event: 'ad_click',
+      ad_variant: variant,
+      ad_index: index,
+    })
+  }
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+interface Props {
+  variant?: 'banner' | 'rectangle'
+}
+
+export default function AdBanner({ variant = 'banner' }: Props) {
+  const ads = variant === 'banner' ? BANNER_ADS : RECTANGLE_ADS
   const [current, setCurrent] = useState(0)
 
+  // Rotación automática cada 5 segundos
   useEffect(() => {
-    if (images.length <= 1) return
-    const timer = setInterval(() => setCurrent(i => (i + 1) % images.length), 5000)
-    return () => clearInterval(timer)
-  }, [images.length])
+    if (ads.length <= 1) return
+    const id = setInterval(() => setCurrent(i => (i + 1) % ads.length), 5000)
+    return () => clearInterval(id)
+  }, [ads.length])
 
-  const src = images[current]
-
-  if (!src) {
+  if (!ads.length) {
     return (
-      <div className="w-full rounded-xl border border-dashed border-surface-border bg-white flex items-center justify-center h-[100px]">
-        <span className="text-[10px] font-semibold text-surface-muted uppercase tracking-widest">Espacio publicitario</span>
+      <div className="w-full bg-gray-100 rounded-lg flex items-center justify-center py-6">
+        <p className="text-xs text-gray-400">Espacio publicitario</p>
       </div>
     )
   }
 
+  const ad = ads[current]!
+
   return (
-    <div className="w-full rounded-xl overflow-hidden relative" aria-label="Publicidad">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt="Publicidad"
-        className="w-full h-auto block"
-      />
+    <div className="w-full">
+      {/* Anuncio clicable */}
+      <a
+        href={ad.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => trackAdClick(variant, current)}
+        aria-label="Ver anuncio"
+        className="block"
+      >
+        <img
+          src={ad.src}
+          alt="Publicidad"
+          className="w-full h-auto block rounded-lg"
+        />
+      </a>
 
-      {images.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {images.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrent(i)}
-              className="w-1.5 h-1.5 rounded-full transition-all"
-              style={{ background: i === current ? 'white' : 'rgba(255,255,255,0.45)' }}
-            />
-          ))}
-        </div>
-      )}
-
-      <p className="text-[9px] text-surface-muted text-right pr-1 bg-white">Publicidad</p>
+      {/* Etiqueta + dots (solo si hay más de 1 anuncio) */}
+      <div className="flex items-center justify-between mt-1 px-0.5">
+        <span className="text-[10px] text-gray-400">Publicidad</span>
+        {ads.length > 1 && (
+          <div className="flex gap-1">
+            {ads.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  i === current ? 'bg-gray-500' : 'bg-gray-300'
+                }`}
+                aria-label={`Anuncio ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
