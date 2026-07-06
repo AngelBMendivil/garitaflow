@@ -40,7 +40,7 @@ export default function CrossingSummaryCard({ crossing }: { crossing: BorderCros
 
         {bestPedestrian && (
           <p className="text-[13px] font-semibold text-brand-navy leading-snug">
-            🚶 {bestPedestrian.name} peatonal — {bestPedestrian.waitMinutes} min
+			🚶 General / Ready Lane peatonal — {bestPedestrian.waitMinutes} min
           </p>
         )}
 
