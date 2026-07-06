@@ -16,7 +16,7 @@ export default function HeaderStatus({ lastUpdated, stale }: Props) {
     <header className="sticky top-0 z-20 bg-white border-b border-surface-border">
       <div className="px-4 py-3 flex items-center justify-between">
         <div>
-          <Image src="/logo.png" alt="GaritaFlow" width={160} height={40} priority className="h-9 w-auto"/>
+          <Image src="/logo.png" alt="GaritaFlow" width={280} height={70} priority className="h-16 w-auto"/>
           <p className="text-[11px] text-surface-muted mt-1">Frontera Tijuana – San Diego</p>
         </div>
         <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-full px-3 py-1.5">
