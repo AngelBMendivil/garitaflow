@@ -40,9 +40,17 @@ export default function BorderCrossingView({ crossings }: Props) {
     )
   }
 
-  const vehicular  = crossing.lanes.filter(l => l.category === 'vehicle')
-  const pedestrian = crossing.lanes.filter(l => l.category === 'pedestrian')
-  const pedwest    = crossing.lanes.filter(l => l.category === 'pedwest')
+  const vehicular = crossing.lanes.filter(l => l.category === 'vehicle')
+
+  // Peatonal: solo carril General, renombrado como "General / Ready Lane"
+  const pedestrian = crossing.lanes
+    .filter(l => l.category === 'pedestrian' && l.name === 'General')
+    .map(l => ({ ...l, name: 'General / Ready Lane' }))
+
+  // PedWest: solo carril General, renombrado como "General / Ready Lane"
+  const pedwest = crossing.lanes
+    .filter(l => l.category === 'pedwest' && l.name === 'General')
+    .map(l => ({ ...l, name: 'General / Ready Lane' }))
 
   return (
     <>
@@ -77,14 +85,16 @@ export default function BorderCrossingView({ crossings }: Props) {
           lanes={pedestrian}
           schedule={SCHEDULES[`${crossing.portCode}-pedestrian`]}
         />
-        <LaneSection
-          category="pedwest"
-          lanes={pedwest}
-          schedule={SCHEDULES[`${crossing.portCode}-pedwest`]}
-        />
+        {pedwest.length > 0 && (
+          <LaneSection
+            category="pedwest"
+            lanes={pedwest}
+            schedule={SCHEDULES[`${crossing.portCode}-pedwest`]}
+          />
+        )}
         <RecommendationCard crossing={crossing}/>
         <ConfidenceCard crossing={crossing}/>
-		<AdBanner variant="rectangle"/>
+        <AdBanner variant="rectangle"/>
       </div>
     </>
   )
