@@ -15,7 +15,9 @@ function bestInGroup(lanes: LaneWaitTime[], categories: string[], excludeSentri 
 
 export default function CrossingSummaryCard({ crossing }: { crossing: BorderCrossing }) {
   const bestVehicle    = bestInGroup(crossing.lanes, ['vehicle'], true)
-  const bestPedestrian = bestInGroup(crossing.lanes, ['pedestrian', 'pedwest'])
+  const bestPedestrian = crossing.lanes
+  .filter(l => ['pedestrian', 'pedwest'].includes(l.category) && l.name === 'General' && l.waitMinutes !== null)
+  .sort((a, b) => (a.waitMinutes ?? 999) - (b.waitMinutes ?? 999))[0] ?? null
   const worst          = getWorstLane(crossing.lanes)
   const showWarning    = worst && worst.waitMinutes !== null && worst.waitMinutes > 45
 
