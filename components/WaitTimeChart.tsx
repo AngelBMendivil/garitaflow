@@ -53,7 +53,8 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
 
   if (!data) return null
 
-  const points  = data[lane]
+  const points = data[lane]
+  if (!points || !Array.isArray(points)) return null
   const nowHour = nowHourLA()
 
   const avgVals = points.map(p => p.avg).filter((v): v is number => v !== null)
