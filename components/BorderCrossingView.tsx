@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import CrossingSummaryCard from '@/components/CrossingSummaryCard'
 import LaneSection from '@/components/LaneSection'
-import RecommendationCard from '@/components/RecommendationCard'
+import WaitTimeChart from '@/components/WaitTimeChart'
 import ConfidenceCard from '@/components/ConfidenceCard'
 import AdBanner from '@/components/AdBanner'
 import type { BorderCrossing } from '@/lib/types'
@@ -106,7 +106,7 @@ export default function BorderCrossingView({ crossings }: Props) {
             closed={crossing.portCode === 'SAN_YSIDRO' ? pedwestClosed : false}
           />
         )}
-        <RecommendationCard crossing={crossing}/>
+        <WaitTimeChart portCode={crossing.portCode}/>
         <ConfidenceCard crossing={crossing}/>
         <AdBanner variant="rectangle"/>
       </div>
