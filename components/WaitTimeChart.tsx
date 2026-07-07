@@ -6,14 +6,6 @@ interface HourPoint { hour: number; avg: number | null; today: number | null }
 interface ChartData  { general: HourPoint[]; sentri: HourPoint[] }
 interface Tooltip    { x: number; y: number; hour: number; avg: number | null; today: number | null }
 
-const PERIODS = [
-  { label: 'Madrugada', start: 0,  end: 5  },
-  { label: 'Mañana',    start: 6,  end: 11 },
-  { label: 'Tarde',     start: 12, end: 17 },
-  { label: 'Noche',     start: 18, end: 23 },
-]
-const PERIOD_FILL = ['#e0e7ff33','#fef9c333','#ffedd533','#f1f5f933']
-
 function fmt(h: number): string {
   if (h === 0)  return '12am'
   if (h < 12)   return `${h}am`
@@ -71,9 +63,9 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
   const allVals = [...avgVals, ...points.map(p => p.today).filter((v): v is number => v !== null)]
   const chartMax = Math.ceil(Math.max(...allVals) / 20) * 20 + 15
 
-  const W=620, H=200, pL=34, pR=6, pT=10, pB=30
+  const W=620, H=240, pL=36, pR=8, pT=16, pB=32
   const cW=W-pL-pR, cH=H-pT-pB
-  const sW=cW/24, bW=Math.max(6, sW-3)
+  const sW=cW/24, bW=Math.max(8, sW-4)
 
   const cx  = (i: number) => pL + i*sW + sW/2
   const yS  = (v: number) => pT + cH - (v/chartMax)*cH
@@ -91,7 +83,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
     const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? 0) : (e as React.MouseEvent).clientX
     const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? 0) : (e as React.MouseEvent).clientY
     let x = clientX - rect.left + 10
-    const y = clientY - rect.top  - 65
+    const y = clientY - rect.top - 65
     if (x + 160 > rect.width) x -= 170
     setTooltip({ x, y: Math.max(y, 8), hour: i, avg: points[i]?.avg ?? null, today: points[i]?.today ?? null })
   }
@@ -187,24 +179,20 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
 
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
 
-          {/* Period backgrounds */}
-          {PERIODS.map((p, pi) => (
-            <g key={p.label}>
-              <rect x={pL+p.start*sW} y={pT} width={(p.end-p.start+1)*sW} height={cH} fill={PERIOD_FILL[pi]}/>
-              <text x={pL+p.start*sW+(p.end-p.start+1)*sW/2} y={pT+10} textAnchor="middle" fontSize={7.5} fill="#94a3b8">{p.label}</text>
-            </g>
-          ))}
-
-          {/* Grid */}
+          {/* Grid lines only — no period backgrounds */}
           {[0,1,2,3,4].map(g => {
             const yv=(chartMax/4)*g, yp=yS(yv)
             return (
               <g key={g}>
                 <line x1={pL} y1={yp} x2={W-pR} y2={yp} stroke="#e2e8f0" strokeWidth={0.5}/>
-                {g>0 && <text x={pL-3} y={yp+3} textAnchor="end" fontSize={8} fill="#94a3b8">{Math.round(yv)}</text>}
+                {g>0 && <text x={pL-4} y={yp+3} textAnchor="end" fontSize={9} fill="#94a3b8">{Math.round(yv)}</text>}
               </g>
             )
           })}
+
+          {/* Vertical "now" line */}
+          <line x1={cx(nowHour)} y1={pT} x2={cx(nowHour)} y2={pT+cH}
+            stroke="#6366f1" strokeWidth={1} strokeDasharray="4 2" pointerEvents="none"/>
 
           {/* Bars + hit areas */}
           {points.map((p, i) => {
@@ -229,64 +217,36 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
 
           {/* Today line */}
           {todayPath && (
-            <path d={todayPath} stroke="#f97316" strokeWidth={2.5} fill="none"
+            <path d={todayPath} stroke="#f97316" strokeWidth={3} fill="none"
               strokeLinejoin="round" strokeLinecap="round" pointerEvents="none"/>
           )}
           {todayPts.map(p => (
             <circle key={p.i} cx={p.x} cy={p.y}
-              r={p.i===nowHour ? 5 : 3}
+              r={p.i===nowHour ? 6 : 3}
               fill="#f97316" stroke="#fff"
-              strokeWidth={p.i===nowHour ? 2 : 1}
+              strokeWidth={p.i===nowHour ? 2.5 : 1}
               pointerEvents="none"
             />
           ))}
 
-          {/* "Ahora" label on last today point */}
+          {/* "Ahora" pill on last today point */}
           {todayPts.length > 0 && (() => {
             const last = todayPts[todayPts.length-1]
             if (!last) return null
-            const lw=60, lx = last.x+8+lw > W-pR ? last.x-lw-8 : last.x+8
+            const lw=64, lx = last.x+10+lw > W-pR ? last.x-lw-10 : last.x+10
             return (
               <g pointerEvents="none">
-                <rect x={lx} y={last.y-10} width={lw} height={16} fill="#fff7ed" rx={4} stroke="#fed7aa" strokeWidth={0.5}/>
-                <text x={lx+lw/2} y={last.y+1} textAnchor="middle" fontSize={8.5} fill="#c2410c" fontWeight={500}>
+                <rect x={lx} y={last.y-11} width={lw} height={18} fill="#fff7ed" rx={9} stroke="#fed7aa" strokeWidth={0.5}/>
+                <text x={lx+lw/2} y={last.y+2} textAnchor="middle" fontSize={9} fill="#c2410c" fontWeight={500}>
                   Ahora: {last.v} min
                 </text>
               </g>
             )
           })()}
 
-          {/* Callout: peor hora */}
-          {(() => {
-            const bx=cx(maxH), by=yS(maxVal)
-            return (
-              <g pointerEvents="none">
-                <line x1={bx} y1={by-2} x2={bx} y2={by-14} stroke="#dc2626" strokeWidth={1}/>
-                <rect x={bx-24} y={by-27} width={48} height={13} fill="#fef2f2" rx={3} stroke="#fca5a5" strokeWidth={0.5}/>
-                <text x={bx} y={by-17} textAnchor="middle" fontSize={8.5} fill="#dc2626" fontWeight={500}>🔴 {maxVal} min</text>
-              </g>
-            )
-          })()}
-
-          {/* Callout: mejor hora */}
-          {(() => {
-            const bx=cx(minH), by=yS(minVal)
-            return (
-              <g pointerEvents="none">
-                <line x1={bx} y1={by-2} x2={bx} y2={by-14} stroke="#16a34a" strokeWidth={1}/>
-                <rect x={bx-24} y={by-27} width={48} height={13} fill="#f0fdf4" rx={3} stroke="#86efac" strokeWidth={0.5}/>
-                <text x={bx} y={by-17} textAnchor="middle" fontSize={8.5} fill="#16a34a" fontWeight={500}>✅ {minVal} min</text>
-              </g>
-            )
-          })()}
-
-          {/* Línea vertical ahora */}
-          <line x1={cx(nowHour)} y1={pT} x2={cx(nowHour)} y2={pT+cH}
-            stroke="#6366f1" strokeWidth={1} strokeDasharray="4 2" pointerEvents="none"/>
-
-          {/* Eje X */}
-          {Array.from({length:24},(_,i)=>i).filter(i=>i%3===0).map(i=>(
-            <text key={i} x={cx(i)} y={H-8} textAnchor="middle" fontSize={8.5} fill="#94a3b8">{fmt(i)}</text>
+          {/* X axis — every 6 hours only */}
+          {[0, 6, 12, 18, 23].map(i => (
+            <text key={i} x={cx(i)} y={H-8} textAnchor="middle" fontSize={10} fill="#94a3b8">{fmt(i)}</text>
           ))}
 
         </svg>
@@ -295,7 +255,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
       {/* Insight */}
       <div className="mx-4 mb-3 px-3 py-2 bg-surface-bg rounded-lg border border-surface-border">
         <p className="text-[11px] text-surface-muted leading-relaxed">
-          💡 Toca o pasa el cursor sobre cualquier barra para ver el detalle. La línea naranja muestra cómo ha estado la fila hoy vs el promedio histórico.
+          💡 Toca una barra para ver el detalle. La línea naranja muestra la tendencia de hoy.
         </p>
       </div>
 
