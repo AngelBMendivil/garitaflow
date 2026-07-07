@@ -87,8 +87,8 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
   function handleEnter(e: React.MouseEvent | React.TouchEvent, i: number) {
     if (!wrapRef.current) return
     const rect = wrapRef.current.getBoundingClientRect()
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+    const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? 0) : (e as React.MouseEvent).clientX
+    const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? 0) : (e as React.MouseEvent).clientY
     let x = clientX - rect.left + 10
     const y = clientY - rect.top  - 65
     if (x + 160 > rect.width) x -= 170
