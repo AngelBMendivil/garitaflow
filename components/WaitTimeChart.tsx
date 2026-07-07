@@ -92,7 +92,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
     let x = clientX - rect.left + 10
     const y = clientY - rect.top  - 65
     if (x + 160 > rect.width) x -= 170
-	setTooltip({ x, y: Math.max(y, 8), hour: i, avg: points[i]?.avg ?? null, today: points[i]?.today ?? null })
+    setTooltip({ x, y: Math.max(y, 8), hour: i, avg: points[i]?.avg ?? null, today: points[i]?.today ?? null })
   }
 
   const nowVal = points[nowHour]?.today ?? points[nowHour]?.avg ?? null
@@ -243,6 +243,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
           {/* "Ahora" label on last today point */}
           {todayPts.length > 0 && (() => {
             const last = todayPts[todayPts.length-1]
+            if (!last) return null
             const lw=60, lx = last.x+8+lw > W-pR ? last.x-lw-8 : last.x+8
             return (
               <g pointerEvents="none">
