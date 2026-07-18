@@ -1,14 +1,12 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 
 // ─── Configuración de anuncios ────────────────────────────────────────────────
-// Agrega aquí los anuncios: { src: ruta de imagen, url: destino del clic }
-// Por defecto los anuncios dirigen al WhatsApp de GaritaFlow
 const WA_URL = 'https://wa.me/16196508063'
 
 const BANNER_ADS = [
-  { src: '/ads/banner-1.jpg.png', url: WA_URL },
+  { src: '/ads/banner-1.jpg.png', url: WA_URL },                          // GaritaFlow WhatsApp
+  { src: '/ads/banner-2.jpg.png', url: 'https://www.dratrinimendivil.com' }, // Dra. Trini
 ]
 
 const RECTANGLE_ADS = [
@@ -35,7 +33,6 @@ export default function AdBanner({ variant = 'banner' }: Props) {
   const ads = variant === 'banner' ? BANNER_ADS : RECTANGLE_ADS
   const [current, setCurrent] = useState(0)
 
-  // Rotación automática cada 5 segundos
   useEffect(() => {
     if (ads.length <= 1) return
     const id = setInterval(() => setCurrent(i => (i + 1) % ads.length), 5000)
@@ -54,7 +51,6 @@ export default function AdBanner({ variant = 'banner' }: Props) {
 
   return (
     <div className="w-full">
-      {/* Anuncio clicable */}
       <a
         href={ad.url}
         target="_blank"
@@ -69,8 +65,6 @@ export default function AdBanner({ variant = 'banner' }: Props) {
           className="w-full h-auto block rounded-lg"
         />
       </a>
-
-      {/* Etiqueta + dots (solo si hay más de 1 anuncio) */}
       <div className="flex items-center justify-between mt-1 px-0.5">
         <span className="text-[10px] text-gray-400">Publicidad</span>
         {ads.length > 1 && (
