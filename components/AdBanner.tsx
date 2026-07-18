@@ -6,7 +6,7 @@ const WA_URL = 'https://wa.me/16196508063'
 
 const BANNER_ADS = [
   { src: '/ads/banner-1.jpg.png', url: WA_URL },                          // GaritaFlow WhatsApp
-  { src: '/ads/banner-2.jpg.png', url: 'https://www.dratrinimendivil.com' }, // Dra. Trini
+  { src: '/ads/banner-2.jpg.png', url: 'https://dratrinimendivil.com' }, // Dra. Trini
 ]
 
 const RECTANGLE_ADS = [
