@@ -1,15 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CrossingSummaryCard from '@/components/CrossingSummaryCard'
 import LaneSection from '@/components/LaneSection'
 import WaitTimeChart from '@/components/WaitTimeChart'
 import ConfidenceCard from '@/components/ConfidenceCard'
 import AdBanner from '@/components/AdBanner'
+import { CITIES, detectCityKey, getCityByKey } from '@/lib/cities'
 import type { BorderCrossing } from '@/lib/types'
 
 interface Props { crossings: BorderCrossing[] }
 
-// PedWest: abierto 6:00 a.m. – 2:00 p.m. horario del Pacífico
 function isPedwestClosed(): boolean {
   const hour = parseInt(
     new Date().toLocaleString('en-US', {
@@ -32,82 +32,130 @@ const SCHEDULES: Record<string, string> = {
 }
 
 export default function BorderCrossingView({ crossings }: Props) {
-  const [selected, setSelected] = useState(0)
-  const crossing = crossings[selected]
-  const pedwestClosed = isPedwestClosed()
+  const [cityKey,   setCityKey]   = useState('tijuana')
+  const [portIndex, setPortIndex] = useState(0)
 
-  if (!crossing) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-surface-bg border border-surface-border flex items-center justify-center mb-4">
-          <svg width="28" height="22" viewBox="0 0 26 20" fill="none" aria-hidden="true">
-            <rect x="0" y="0" width="7" height="3.5" rx="1.75" fill="#A6B0C3"/>
-            <rect x="0" y="8" width="13" height="3.5" rx="1.75" fill="#A6B0C3"/>
-            <rect x="0" y="16" width="19" height="3.5" rx="1.75" fill="#A6B0C3"/>
-            <line x1="9" y1="0" x2="26" y2="20" stroke="#A6B0C3" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-        </div>
-        <p className="text-[15px] font-semibold text-brand-navy mb-1">Sin datos disponibles</p>
-        <p className="text-[13px] text-surface-muted">
-          Ejecuta <code className="bg-surface-bg px-1.5 py-0.5 rounded font-mono text-[12px]">npm run scrape</code> para cargar datos
-        </p>
-      </div>
-    )
+  // Auto-detect city on mount (client-only)
+  useEffect(() => {
+    const detected = detectCityKey()
+    setCityKey(detected)
+    setPortIndex(0)
+  }, [])
+
+  const city         = getCityByKey(cityKey)
+  const cityPortCodes = city.ports.map(p => p.code)
+
+  // Find real crossing data for this city's ports
+  const cityCrossings = city.ports.map(cp =>
+    crossings.find(c => c.portCode === cp.code) ?? null
+  )
+
+  const selectedPort    = city.ports[portIndex]
+  const crossing        = cityCrossings[portIndex] ?? null
+  const pedwestClosed   = isPedwestClosed()
+
+  function handleCityChange(key: string) {
+    setCityKey(key)
+    setPortIndex(0)
   }
-
-  const vehicular = crossing.lanes.filter(l => l.category === 'vehicle')
-
-  const pedestrian = crossing.lanes
-    .filter(l => l.category === 'pedestrian' && l.name === 'General')
-    .map(l => ({ ...l, name: 'General / Ready Lane' }))
-
-  const pedwest = crossing.lanes
-    .filter(l => l.category === 'pedwest' && l.name === 'General')
-    .map(l => ({ ...l, name: 'General / Ready Lane' }))
 
   return (
     <>
-      {/* Tabs */}
-      <div className="bg-white border-b border-surface-border px-4 pt-3 flex gap-2">
-        {crossings.map((c, i) => (
-          <button
-            key={c.id}
-            onClick={() => setSelected(i)}
-            className={`flex-1 py-2 text-[13px] font-semibold rounded-t-lg border transition-all ${
-              i === selected
-                ? 'bg-brand-blue text-white border-brand-blue'
-                : 'bg-white text-surface-muted border-surface-border hover:border-brand-blue hover:text-brand-blue'
-            }`}
-          >
-            {c.name}
-          </button>
-        ))}
+      {/* ── Ciudad selector (scrollable tabs) ── */}
+      <div className="bg-white border-b border-surface-border">
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex px-3 pt-3 gap-1.5 min-w-max">
+            {CITIES.map(c => (
+              <button
+                key={c.key}
+                onClick={() => handleCityChange(c.key)}
+                className={`flex flex-col items-center px-3.5 py-2 rounded-t-lg border text-left transition-all whitespace-nowrap ${
+                  c.key === cityKey
+                    ? 'bg-brand-blue text-white border-brand-blue'
+                    : 'bg-white text-surface-muted border-surface-border hover:border-brand-blue hover:text-brand-blue'
+                }`}
+              >
+                <span className="text-[13px] font-semibold leading-tight">{c.label}</span>
+                <span className={`text-[9px] ${c.key === cityKey ? 'text-blue-200' : 'text-surface-muted'}`}>
+                  {c.state}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Timezone badge */}
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-surface-bg border-t border-surface-border">
+          <span className="text-[10px] text-surface-muted">🕐</span>
+          <span className="text-[10px] text-surface-muted">{city.tzLabel}</span>
+        </div>
       </div>
 
-      {/* Content */}
+      {/* ── Puerto selector (tabs within city) ── */}
+      {city.ports.length > 1 && (
+        <div className="bg-white border-b border-surface-border px-4 pt-2 pb-0 flex gap-2">
+          {city.ports.map((port, i) => (
+            <button
+              key={port.code}
+              onClick={() => setPortIndex(i)}
+              className={`flex-1 py-2 text-[12px] font-semibold rounded-t-lg border transition-all ${
+                i === portIndex
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-surface-muted border-surface-border hover:border-indigo-400 hover:text-indigo-600'
+              }`}
+            >
+              {port.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Content ── */}
       <div className="px-4 py-4 flex flex-col gap-4">
-        <CrossingSummaryCard crossing={crossing} pedwestClosed={pedwestClosed}/>
-        <AdBanner variant="banner"/>
-        <LaneSection
-          category="vehicle"
-          lanes={vehicular}
-          schedule={SCHEDULES[`${crossing.portCode}-vehicle`]}
-        />
-        <LaneSection
-          category="pedestrian"
-          lanes={pedestrian}
-          schedule={SCHEDULES[`${crossing.portCode}-pedestrian`]}
-        />
-        {(pedwest.length > 0 || crossing.portCode === 'SAN_YSIDRO') && (
-          <LaneSection
-            category="pedwest"
-            lanes={pedwest}
-            schedule={SCHEDULES[`${crossing.portCode}-pedwest`]}
-            closed={crossing.portCode === 'SAN_YSIDRO' ? pedwestClosed : false}
-          />
+        {crossing ? (
+          <>
+            <CrossingSummaryCard crossing={crossing} pedwestClosed={pedwestClosed}/>
+            <AdBanner variant="banner"/>
+            <LaneSection
+              category="vehicle"
+              lanes={crossing.lanes.filter(l => l.category === 'vehicle')}
+              schedule={SCHEDULES[`${crossing.portCode}-vehicle`]}
+            />
+            <LaneSection
+              category="pedestrian"
+              lanes={crossing.lanes
+                .filter(l => l.category === 'pedestrian' && l.name === 'General')
+                .map(l => ({ ...l, name: 'General / Ready Lane' }))}
+              schedule={SCHEDULES[`${crossing.portCode}-pedestrian`]}
+            />
+            {(crossing.lanes.some(l => l.category === 'pedwest') || crossing.portCode === 'SAN_YSIDRO') && (
+              <LaneSection
+                category="pedwest"
+                lanes={crossing.lanes
+                  .filter(l => l.category === 'pedwest' && l.name === 'General')
+                  .map(l => ({ ...l, name: 'General / Ready Lane' }))}
+                schedule={SCHEDULES[`${crossing.portCode}-pedwest`]}
+                closed={crossing.portCode === 'SAN_YSIDRO' ? pedwestClosed : false}
+              />
+            )}
+            <WaitTimeChart portCode={crossing.portCode} timezone={city.timezone}/>
+            <ConfidenceCard crossing={crossing}/>
+          </>
+        ) : (
+          /* No data yet for this port */
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4 text-2xl">
+              🚧
+            </div>
+            <p className="text-[15px] font-semibold text-brand-navy mb-1">
+              {selectedPort?.name} — Próximamente
+            </p>
+            <p className="text-[13px] text-surface-muted max-w-xs leading-relaxed">
+              Estamos conectando esta garita. Los datos aparecerán en cuanto se complete la integración.
+            </p>
+          </div>
         )}
-        <WaitTimeChart portCode={crossing.portCode}/>
-        <ConfidenceCard crossing={crossing}/>
+
         <AdBanner variant="rectangle"/>
       </div>
     </>

@@ -6,6 +6,8 @@ interface HourPoint { hour: number; avg: number | null; today: number | null }
 interface ChartData  { general: HourPoint[]; sentri: HourPoint[] }
 interface Tooltip    { x: number; y: number; hour: number; avg: number | null; today: number | null }
 
+const DAY_NAMES = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados']
+
 function fmt(h: number): string {
   if (h === 0)  return '12am'
   if (h < 12)   return `${h}am`
@@ -13,29 +15,41 @@ function fmt(h: number): string {
   return `${h - 12}pm`
 }
 
-function nowHourLA(): number {
+function nowHourInTz(tz: string): number {
   return parseInt(
-    new Date().toLocaleString('en-US', {
-      timeZone: 'America/Los_Angeles',
-      hour: 'numeric',
-      hour12: false,
-    })
+    new Date().toLocaleString('en-US', { timeZone: tz, hour: 'numeric', hour12: false })
   )
 }
 
-export default function WaitTimeChart({ portCode }: { portCode: string }) {
+function nowDowInTz(tz: string): number {
+  const local = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+  return local.getDay()
+}
+
+interface Props {
+  portCode: string
+  timezone?: string
+}
+
+export default function WaitTimeChart({ portCode, timezone = 'America/Los_Angeles' }: Props) {
   const [data,    setData]    = useState<ChartData | null>(null)
   const [loading, setLoading] = useState(true)
   const [lane,    setLane]    = useState<'general' | 'sentri'>('general')
   const [tooltip, setTooltip] = useState<Tooltip | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
+  const dow     = nowDowInTz(timezone)
+  const nowHour = nowHourInTz(timezone)
+  const dayName = DAY_NAMES[dow] ?? 'hoy'
+
   useEffect(() => {
-    fetch(`/api/chart?portCode=${portCode}`)
+    setLoading(true)
+    setData(null)
+    fetch(`/api/chart?portCode=${portCode}&dow=${dow}&timezone=${encodeURIComponent(timezone)}`)
       .then(r => r.json())
       .then(d  => { setData(d); setLoading(false) })
       .catch(()  => setLoading(false))
-  }, [portCode])
+  }, [portCode, timezone, dow])
 
   if (loading) return (
     <div className="bg-white rounded-xl shadow-card border border-surface-border flex items-center justify-center h-48">
@@ -47,7 +61,6 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
 
   const points = data[lane]
   if (!points || !Array.isArray(points)) return null
-  const nowHour = nowHourLA()
 
   const avgVals = points.map(p => p.avg).filter((v): v is number => v !== null)
   if (!avgVals.length) return (
@@ -67,9 +80,9 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
   const cW=W-pL-pR, cH=H-pT-pB
   const sW=cW/24, bW=Math.max(8, sW-4)
 
-  const cx  = (i: number) => pL + i*sW + sW/2
-  const yS  = (v: number) => pT + cH - (v/chartMax)*cH
-  const bX  = (i: number) => pL + i*sW + (sW-bW)/2
+  const cx = (i: number) => pL + i*sW + sW/2
+  const yS = (v: number) => pT + cH - (v/chartMax)*cH
+  const bX = (i: number) => pL + i*sW + (sW-bW)/2
 
   const todayPts = points
     .map((p, i) => p.today !== null ? { x: cx(i), y: yS(p.today), v: p.today, i } : null)
@@ -101,7 +114,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
         </span>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs General / SENTRI */}
       <div className="flex gap-1.5 px-4 pt-3">
         {(['general', 'sentri'] as const).map(l => (
           <button
@@ -140,7 +153,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
       {/* Legend */}
       <div className="flex gap-3 px-4 pb-1 flex-wrap">
         {[
-          { bg: '#60a5fa', label: 'Promedio 30 días' },
+          { bg: '#60a5fa', label: `Promedio ${dayName}` },
           { bg: '#4ade80', label: 'Mejor hora' },
           { bg: '#f87171', label: 'Peor hora' },
         ].map(({ bg, label }) => (
@@ -156,20 +169,12 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
       </div>
 
       {/* Chart */}
-      <div
-        ref={wrapRef}
-        className="px-4 pb-3 relative"
-        onMouseLeave={() => setTooltip(null)}
-      >
-        {/* Tooltip */}
+      <div ref={wrapRef} className="px-4 pb-3 relative" onMouseLeave={() => setTooltip(null)}>
         {tooltip && (
-          <div
-            className="absolute z-10 pointer-events-none"
-            style={{ left: tooltip.x, top: tooltip.y }}
-          >
+          <div className="absolute z-10 pointer-events-none" style={{ left: tooltip.x, top: tooltip.y }}>
             <div className="bg-[#1e293b] text-white rounded-lg px-3 py-2 text-[11px] whitespace-nowrap shadow-xl">
               <p className="text-[10px] text-slate-400 mb-0.5">{fmt(tooltip.hour)}</p>
-              <p className="font-medium">📊 Promedio: {tooltip.avg} min</p>
+              <p className="font-medium">📊 Promedio {dayName}: {tooltip.avg} min</p>
               {tooltip.today !== null && (
                 <p className="text-orange-400 font-medium">🟠 Hoy: {tooltip.today} min</p>
               )}
@@ -178,8 +183,6 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
         )}
 
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-
-          {/* Grid lines only — no period backgrounds */}
           {[0,1,2,3,4].map(g => {
             const yv=(chartMax/4)*g, yp=yS(yv)
             return (
@@ -190,11 +193,9 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
             )
           })}
 
-          {/* Vertical "now" line */}
           <line x1={cx(nowHour)} y1={pT} x2={cx(nowHour)} y2={pT+cH}
             stroke="#6366f1" strokeWidth={1} strokeDasharray="4 2" pointerEvents="none"/>
 
-          {/* Bars + hit areas */}
           {points.map((p, i) => {
             if (p.avg === null) return null
             const barH=(p.avg/chartMax)*cH, y=yS(p.avg)
@@ -202,9 +203,7 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
             return (
               <g key={i}>
                 <rect x={bX(i)} y={y} width={bW} height={barH} fill={fill} rx={2} opacity={0.9}/>
-                <rect
-                  x={pL+i*sW} y={pT} width={sW} height={cH}
-                  fill="transparent"
+                <rect x={pL+i*sW} y={pT} width={sW} height={cH} fill="transparent"
                   style={{ cursor:'pointer' }}
                   onMouseEnter={e => handleEnter(e, i)}
                   onMouseMove={e  => handleEnter(e, i)}
@@ -215,21 +214,16 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
             )
           })}
 
-          {/* Today line */}
           {todayPath && (
             <path d={todayPath} stroke="#f97316" strokeWidth={3} fill="none"
               strokeLinejoin="round" strokeLinecap="round" pointerEvents="none"/>
           )}
           {todayPts.map(p => (
             <circle key={p.i} cx={p.x} cy={p.y}
-              r={p.i===nowHour ? 6 : 3}
-              fill="#f97316" stroke="#fff"
-              strokeWidth={p.i===nowHour ? 2.5 : 1}
-              pointerEvents="none"
-            />
+              r={p.i===nowHour ? 6 : 3} fill="#f97316" stroke="#fff"
+              strokeWidth={p.i===nowHour ? 2.5 : 1} pointerEvents="none"/>
           ))}
 
-          {/* "Ahora" pill on last today point */}
           {todayPts.length > 0 && (() => {
             const last = todayPts[todayPts.length-1]
             if (!last) return null
@@ -244,18 +238,15 @@ export default function WaitTimeChart({ portCode }: { portCode: string }) {
             )
           })()}
 
-          {/* X axis — every 6 hours only */}
           {[0, 6, 12, 18, 23].map(i => (
             <text key={i} x={cx(i)} y={H-8} textAnchor="middle" fontSize={10} fill="#94a3b8">{fmt(i)}</text>
           ))}
-
         </svg>
       </div>
 
-      {/* Insight */}
       <div className="mx-4 mb-3 px-3 py-2 bg-surface-bg rounded-lg border border-surface-border">
         <p className="text-[11px] text-surface-muted leading-relaxed">
-          💡 Toca una barra para ver el detalle. La línea naranja muestra la tendencia de hoy.
+          💡 Las barras muestran el promedio histórico de los {dayName}. La línea naranja es la tendencia de hoy.
         </p>
       </div>
 
