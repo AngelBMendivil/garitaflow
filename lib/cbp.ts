@@ -5,16 +5,35 @@
  * No requiere API key. Actualizado ~cada 5-15 minutos por CBP.
  * Formato: JSON array de puertos.
  *
- * Puertos monitoreados:
- *   250401 → SAN_YSIDRO  (vehicular + peatonal este)
- *   250601 → OTAY        (vehicular + peatonal)
- *   250407 → PED_WEST    (solo peatonal — cruce exclusivo para caminantes TJ)
+ * Puertos monitoreados (cbp_id → port_code interno):
+ *   250401 → SAN_YSIDRO  (San Ysidro — vehicular + peatonal)
+ *   250601 → OTAY        (Otay Mesa — vehicular + peatonal)
+ *   250407 → PED_WEST    (San Ysidro PedWest — solo peatonal)
+ *   250501 → TECATE      (Tecate)
+ *   250301 → MEXICALI1   (Calexico East / Mexicali II)
+ *   250302 → MEXICALI2   (Calexico West / Mexicali I)
+ *   260402 → NOGALES1    (Nogales — Mariposa)
+ *   260401 → NOGALES2    (Nogales — Deconcini)
+ *   240203 → ELPASO1     (El Paso — Ysleta)
+ *   240221 → ELPASO2     (El Paso — Bridge of Americas)
+ *   240204 → ELPASO3     (El Paso — Stanton DCL)
+ *   230401 → LAREDO1     (Laredo — Bridge I / Gateway)
+ *   230403 → LAREDO2     (Laredo — Colombia Solidarity)
  */
-
 const MONITORED_PORTS: Record<string, string> = {
   '250401': 'SAN_YSIDRO',
   '250601': 'OTAY',
   '250407': 'PED_WEST',
+  '250501': 'TECATE',
+  '250301': 'MEXICALI1',
+  '250302': 'MEXICALI2',
+  '260402': 'NOGALES1',
+  '260401': 'NOGALES2',
+  '240203': 'ELPASO1',
+  '240221': 'ELPASO2',
+  '240204': 'ELPASO3',
+  '230401': 'LAREDO1',
+  '230403': 'LAREDO2',
 }
 
 const CBP_URL = 'https://bwt.cbp.gov/api/waittimes'
@@ -58,7 +77,6 @@ function readLane(lane: CbpLaneData | undefined): { wait: number | null; open: n
 export async function fetchCbpWaitTimes(): Promise<CbpReading[]> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let data: any[]
   try {
@@ -68,7 +86,6 @@ export async function fetchCbpWaitTimes(): Promise<CbpReading[]> {
       headers: { Accept: 'application/json' },
     })
     clearTimeout(timer)
-
     if (!response.ok) {
       throw new Error(`CBP respondió con status ${response.status}`)
     }
@@ -91,7 +108,6 @@ export async function fetchCbpWaitTimes(): Promise<CbpReading[]> {
     if (!portNumber || !(portNumber in MONITORED_PORTS)) continue
 
     const portCode = MONITORED_PORTS[portNumber] as string
-
     const dateStr = port.date && port.time ? `${port.date} ${port.time}` : null
     const cbpUpdated = dateStr ? new Date(dateStr) : null
 
