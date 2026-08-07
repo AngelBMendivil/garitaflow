@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "GaritaFlow",
+    "slug": "garitaflow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "garitaflow",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.garitaflow.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GaritaFlow usa tu ubicación para detectar automáticamente cuándo cruzas la frontera y terminar tu cronómetro.",
+        "NSUserNotificationUsageDescription": "Recibe alertas de tráfico en tiempo real para tu garita favorita."
+      }
+    },
+    "android": {
+      "package": "com.garitaflow.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "GaritaFlow usa tu ubicación para detectar cuando cruzas la frontera."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 260,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0049EC"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4d3354d1-25e7-45dd-aaad-dcfb052cdda7"
+      }
+    }
+  }
+}
