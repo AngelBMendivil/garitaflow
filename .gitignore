@@ -1,0 +1,45 @@
+# ─── Dependencias ─────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ─── Secretos / entorno ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# ─── Backend (garitaflow-api) ─────────────────────────────────
+garitaflow-api/dist/
+
+# ─── Expo / RN (garitaflow-app) ───────────────────────────────
+.expo/
+**/.expo/
+dist/
+web-build/
+*.tsbuildinfo
+.metro-health-check*
+
+# ─── Android build artifacts ──────────────────────────────────
+garitaflow-app/android/build/
+garitaflow-app/android/app/build/
+garitaflow-app/android/.gradle/
+garitaflow-app/android/local.properties
+*.keystore
+!debug.keystore
+
+# ─── iOS build artifacts ──────────────────────────────────────
+garitaflow-app/ios/Pods/
+garitaflow-app/ios/build/
+
+# ─── Respaldo local (no versionar) ────────────────────────────
+garitaflow-app-backup/
+
+# ─── Logs / OS ────────────────────────────────────────────────
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+Thumbs.db
