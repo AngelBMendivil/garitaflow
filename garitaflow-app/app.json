@@ -3,6 +3,7 @@
     "name": "GaritaFlow",
     "slug": "garitaflow",
     "version": "1.0.0",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "garitaflow",
@@ -17,11 +18,14 @@
     "android": {
       "package": "com.garitaflow.app",
       "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ]
     },
@@ -35,22 +39,30 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo.png",
+          "image": "./assets/splash.png",
           "backgroundColor": "#FFFFFF",
-          "imageWidth": 260,
+          "imageWidth": 300,
           "resizeMode": "contain"
         }
       ],
       [
         "expo-notifications",
         {
+          "icon": "./assets/notification-icon.png",
           "color": "#0049EC"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
         "projectId": "4d3354d1-25e7-45dd-aaad-dcfb052cdda7"
+      },
+      "googleAuth": {
+        "expoClientId": "",
+        "androidClientId": "",
+        "iosClientId": "",
+        "webClientId": ""
       }
     }
   }

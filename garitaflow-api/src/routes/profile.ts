@@ -13,6 +13,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
       `SELECT u.id, u.email, u.name, u.avatar_url,
               p.selected_city, p.selected_garita, p.avatar_key,
               p.total_xp, p.level, p.total_crossings,
+              p.has_sentri, p.vehicle_key, p.vehicle_color,
               p.badges, p.updated_at
        FROM users u
        JOIN profiles p ON p.user_id = u.id
@@ -31,7 +32,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
 // PATCH /profile — update preferences
 router.patch('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { selected_city, selected_garita, avatar_key, name } = req.body;
+    const { selected_city, selected_garita, avatar_key, name, has_sentri, vehicle_key, vehicle_color } = req.body;
     const userId = req.user!.userId;
 
     // Validate city if provided
@@ -55,6 +56,18 @@ router.patch('/', requireAuth, async (req: AuthRequest, res: Response) => {
     if (avatar_key !== undefined) {
       updates.push(`avatar_key = $${i++}`);
       values.push(avatar_key);
+    }
+    if (has_sentri !== undefined) {
+      updates.push(`has_sentri = $${i++}`);
+      values.push(!!has_sentri);
+    }
+    if (vehicle_key !== undefined) {
+      updates.push(`vehicle_key = $${i++}`);
+      values.push(vehicle_key);
+    }
+    if (vehicle_color !== undefined) {
+      updates.push(`vehicle_color = $${i++}`);
+      values.push(vehicle_color);
     }
 
     if (updates.length > 0) {

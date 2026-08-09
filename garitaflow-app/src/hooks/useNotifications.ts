@@ -1,76 +1,115 @@
-// Notificaciones reales con expo-notifications.
-// Nota: el PUSH REMOTO no funciona en Expo Go (SDK 54); requiere development build.
-// Las notificaciones LOCALES sí funcionan. Todo va protegido para web/Expo Go.
-import * as Notifications from 'expo-notifications';
+import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { pushApi } from '../lib/api';
 
-// Cómo se muestran las notificaciones cuando la app está en primer plano.
+// Cómo se muestran las notificaciones con la app en primer plano.
+// `as any` tolera los cambios de forma del NotificationBehavior entre SDKs.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async () =>
+    ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    } as any),
 });
 
+function platformTag(): 'ios' | 'android' | 'web' {
+  if (Platform.OS === 'ios') return 'ios';
+  if (Platform.OS === 'android') return 'android';
+  return 'web';
+}
+
+/**
+ * Notificaciones reales (build de producción / EAS). En Expo Go varias APIs
+ * no están disponibles: todo va envuelto en try/catch para no tronar.
+ */
 export function useNotifications() {
-  /** Pide permiso del sistema operativo. Devuelve true si quedó concedido. */
-  const requestPermission = async (): Promise<boolean> => {
-    if (Platform.OS === 'web') return false;
+  const [permissionStatus, setPermissionStatus] = useState<string>('undetermined');
+
+  const ensureAndroidChannel = useCallback(async () => {
+    if (Platform.OS !== 'android') return;
     try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'GaritaFlow',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#2563EB',
+      });
+    } catch {
+      // Expo Go u otra limitación → se ignora
+    }
+  }, []);
+
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    try {
+      await ensureAndroidChannel();
       const current = await Notifications.getPermissionsAsync();
       let status = current.status;
       if (status !== 'granted') {
         const req = await Notifications.requestPermissionsAsync();
         status = req.status;
       }
+      setPermissionStatus(status);
       return status === 'granted';
     } catch {
       return false;
     }
-  };
+  }, [ensureAndroidChannel]);
 
-  /** Obtiene el Expo push token y lo registra en el backend. Best-effort. */
-  const registerForPush = async (): Promise<string | null> => {
-    if (Platform.OS === 'web') return null;
+  // Obtiene el Expo push token y lo registra en el backend. Devuelve el token
+  // o null si no hay permiso / entorno sin push (Expo Go). Best-effort.
+  const registerForPush = useCallback(async (): Promise<string | null> => {
     try {
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      const token = tokenData.data;
-      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-      await pushApi.register(token, platform as 'ios' | 'android');
-      return token;
-    } catch (e) {
-      // En Expo Go no hay push remoto; se ignora sin romper el flujo.
-      console.log('[Notifications] push token no disponible (¿Expo Go?):', e);
+      const perm = await Notifications.getPermissionsAsync();
+      if (perm.status !== 'granted') return null;
+
+      const projectId =
+        (Constants.expoConfig?.extra as any)?.eas?.projectId ||
+        (Constants as any).easConfig?.projectId;
+
+      const tokenResp = await Notifications.getExpoPushTokenAsync(
+        projectId ? ({ projectId } as any) : (undefined as any)
+      );
+      const token = tokenResp?.data;
+      if (token) {
+        try {
+          await pushApi.register(token, platformTag());
+        } catch {
+          // el registro remoto puede fallar sin bloquear
+        }
+      }
+      return token || null;
+    } catch {
       return null;
     }
-  };
+  }, []);
 
-  /** Muestra una notificación local inmediata (sí funciona en Expo Go). */
-  const showLocal = async (title: string, body: string): Promise<void> => {
-    if (Platform.OS === 'web') return;
+  // Notificación local inmediata (feedback en pantalla).
+  const showLocal = useCallback(async (title: string, body: string) => {
     try {
       await Notifications.scheduleNotificationAsync({
-        content: { title, body },
+        content: { title, body, sound: 'default' },
         trigger: null,
       });
     } catch {
-      // no-op
+      // sin permiso / Expo Go → se ignora
     }
-  };
+  }, []);
 
-  const getStatus = async (): Promise<string> => {
-    if (Platform.OS === 'web') return 'unsupported';
+  const getStatus = useCallback(async (): Promise<string> => {
     try {
-      const { status } = await Notifications.getPermissionsAsync();
-      return status;
+      const p = await Notifications.getPermissionsAsync();
+      setPermissionStatus(p.status);
+      return p.status;
     } catch {
       return 'undetermined';
     }
-  };
+  }, []);
 
-  return { requestPermission, registerForPush, showLocal, getStatus };
+  return { permissionStatus, requestPermission, registerForPush, showLocal, getStatus };
 }

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootStackParamList, MainTabParamList, FlowEvent } from '../../lib/types';
 import { Colors } from '../../lib/colors';
@@ -21,8 +21,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useCrossing } from '../../hooks/useCrossing';
 import { useFlowIndex } from '../../hooks/useFlowIndex';
 import { useNotifications } from '../../hooks/useNotifications';
-import { flowEventsApi, portsApi, profileApi, alertsApi } from '../../lib/api';
+import { flowEventsApi, portsApi, profileApi, alertsApi, flowIndexApi, crossingsApi } from '../../lib/api';
 import FlowIndexCard from '../../components/FlowIndexCard';
+import Logo from '../../components/Logo';
+import { useLineDetector } from '../../hooks/useLineDetector';
 
 // Banco de avatares (mismo del onboarding)
 const AVATARS = [
@@ -30,6 +32,7 @@ const AVATARS = [
   '🦸', '🧙‍♂️', '🕵️', '👩‍⚕️', '👨‍🏫', '🧑‍🌾',
   '🐺', '🦊', '🐸', '🤖', '👾', '🦄',
   '🌵', '🍕', '🚗', '🛸', '⚡', '🎸',
+  '🩰', '🐄', '🐶', '🥒', '🌭', '🐧', '🧀', '🦙', '🦫', '🦥',
 ];
 
 function saludoPorHora(h: number): string {
@@ -65,7 +68,7 @@ const CITY_LABEL: Record<string, string> = {
 const LANE_LABEL: Record<string, string> = {
   GENERAL: 'General',
   READY: 'Ready Lane',
-  SENTRI: 'SENTRI / TSA',
+  SENTRI: 'SENTRI',
   PEDWEST: 'PedWest',
 };
 
@@ -100,15 +103,27 @@ function hace(iso: string): string {
 }
 
 // Hora actual en Tijuana, independiente del reloj del dispositivo.
+// OJO: en React Native (Hermes) `new Date(localeString)` no parsea el formato
+// y devolvía NaN → el saludo caía siempre en "Buenas noches". Se lee la hora directo.
 function tijuanaHour(): number {
-  const s = new Date().toLocaleString('en-US', { timeZone: 'America/Tijuana' });
-  return new Date(s).getHours();
+  try {
+    const s = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Tijuana',
+      hour: '2-digit',
+      hour12: false,
+    });
+    const h = parseInt(s, 10);
+    if (!Number.isNaN(h)) return h % 24;
+  } catch {
+    // fallback abajo
+  }
+  return new Date().getHours();
 }
 
 export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuth();
-  const { activeCrossing, formattedTime, startCrossing } = useCrossing();
+  const { activeCrossing, formattedTime, startCrossing, checkActive } = useCrossing();
 
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
@@ -116,6 +131,18 @@ export default function HomeScreen({ navigation }: Props) {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
   const { requestPermission, registerForPush, showLocal } = useNotifications();
+
+  // Registra el push token al abrir (silencioso: si ya hay permiso, obtiene y
+  // guarda el token; si no, no molesta). Necesario para que lleguen las alarmas.
+  useEffect(() => { registerForPush(); }, [registerForPush]);
+
+  // Refresca el cruce activo cada vez que Inicio recupera el foco (p. ej. al
+  // volver de terminar un cruce), para que el banner/estado no queden pegados.
+  useFocusEffect(
+    useCallback(() => {
+      checkActive();
+    }, [checkActive])
+  );
 
   const firstName = (user?.name || '').trim().split(' ')[0] || '';
 
@@ -241,6 +268,24 @@ export default function HomeScreen({ navigation }: Props) {
     mode
   );
 
+  // Detector en vivo "¿Estás en la línea?" (GPS del usuario vs geocerca de la garita)
+  const lineStatus = useLineDetector(targetPortId);
+
+  // Recomendación: la garita más rápida de la ciudad (comunidad + CBP + estimación)
+  const [reco, setReco] = useState<any>(null);
+  useEffect(() => {
+    let alive = true;
+    flowIndexApi
+      .recommend(city, mode)
+      .then((r) => { if (alive) setReco(r); })
+      .catch(() => { if (alive) setReco(null); });
+    return () => { alive = false; };
+  }, [city, mode]);
+
+  // Al cambiar de garita se limpian los comentarios para no mostrar los de la
+  // garita anterior mientras cargan los nuevos (bug: se quedaban pegados).
+  useEffect(() => { setEvents([]); }, [targetPortId]);
+
   const loadEvents = useCallback(async () => {
     const pid = activeCrossing?.port_id ? String(activeCrossing.port_id) : targetPortId;
     if (!pid) return;
@@ -318,18 +363,75 @@ export default function HomeScreen({ navigation }: Props) {
 
   const handleStartCrossing = async () => {
     if (!targetPortId || loadingStart || laneBlocked) return;
+    // Candado por geolocalización: bloquea SOLO si sabemos que estás fuera de la línea.
+    if (lineStatus === 'OUTSIDE') {
+      Alert.alert(
+        'No estás en la línea',
+        'Solo puedes iniciar el cruce cuando estás físicamente en la fila de esta garita.'
+      );
+      return;
+    }
+    const laneLabel = LANE_LABEL[lane] || lane;
+    const portDisplay = `${isPedwest ? 'PedWest' : port?.name} · ${laneLabel}`;
     setLoadingStart(true);
     try {
       const c = await startCrossing(targetPortId, targetLane, mode);
       navigation.navigate('ActiveCrossing', {
         crossingId: c.id,
-        portName: `${isPedwest ? 'PedWest' : port?.name} · ${LANE_LABEL[lane] || lane}`,
+        portName: portDisplay,
+        portId: targetPortId,
+        laneLabel,
+        startedAt: c.started_at,
       });
     } catch (err: any) {
-      Alert.alert('No se pudo iniciar el cruce', err?.message || 'Error desconocido');
+      // 409 = ya hay un cruce en curso. En vez de un mensaje sin salida,
+      // ofrecemos reanudarlo o terminarlo (queda desatorado).
+      if (err?.status === 409) {
+        await offerResumeOrFinish();
+      } else {
+        Alert.alert('No se pudo iniciar el cruce', err?.message || 'Error desconocido');
+      }
     } finally {
       setLoadingStart(false);
     }
+  };
+
+  // Recupera el cruce en curso (aunque su garita quedara huérfana) y deja al
+  // usuario reanudarlo o terminarlo para poder iniciar uno nuevo.
+  const offerResumeOrFinish = async () => {
+    let active: any = null;
+    try { active = await crossingsApi.active(); } catch { /* ignore */ }
+    await checkActive();
+
+    const resume = () => {
+      if (!active) return;
+      navigation.navigate('ActiveCrossing', {
+        crossingId: active.id,
+        portName: active.port_name
+          ? `${active.port_name}${active.lane_type ? ` · ${LANE_LABEL[active.lane_type] || active.lane_type}` : ''}`
+          : 'Cruce en curso',
+        portId: active.port_id ? String(active.port_id) : undefined,
+        laneLabel: active.lane_type ? (LANE_LABEL[active.lane_type] || active.lane_type) : undefined,
+        startedAt: active.started_at,
+      });
+    };
+
+    const finish = async () => {
+      try {
+        if (active?.id) await crossingsApi.end(active.id);
+      } catch { /* ignore */ }
+      await checkActive();
+    };
+
+    Alert.alert(
+      'Ya tienes un cruce en curso',
+      'Puedes reanudarlo o terminarlo para iniciar uno nuevo.',
+      [
+        { text: 'Terminarlo', style: 'destructive', onPress: finish },
+        { text: 'Reanudar', onPress: resume },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
   };
 
   if (loadingPorts) {
@@ -347,12 +449,16 @@ export default function HomeScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.logoBar}>
+          <Logo variant="dark" size={30} />
+        </View>
+
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.greetingHi} numberOfLines={1}>
-              Hola{firstName ? `, ${firstName}` : ''} 👋
+              {saludoPorHora(now)}{firstName ? `, ${firstName}` : ''} 👋
             </Text>
-            <Text style={styles.greetingSub}>{saludoPorHora(now)}</Text>
+            <Text style={styles.greetingSub}>Garita · {CITY_LABEL[city] || city}</Text>
           </View>
           <TouchableOpacity
             style={styles.userBadge}
@@ -369,7 +475,12 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() =>
               navigation.navigate('ActiveCrossing', {
                 crossingId: activeCrossing.id,
-                portName: activeCrossing.port_name || 'Garita',
+                portName: activeCrossing.port_name
+                  ? `${activeCrossing.port_name}${activeCrossing.lane_type ? ` · ${LANE_LABEL[activeCrossing.lane_type] || activeCrossing.lane_type}` : ''}`
+                  : 'Cruce en curso',
+                portId: activeCrossing.port_id ? String(activeCrossing.port_id) : undefined,
+                laneLabel: activeCrossing.lane_type ? (LANE_LABEL[activeCrossing.lane_type] || activeCrossing.lane_type) : undefined,
+                startedAt: activeCrossing.started_at,
               })
             }
           >
@@ -379,6 +490,42 @@ export default function HomeScreen({ navigation }: Props) {
             </View>
           </TouchableOpacity>
         )}
+
+        {reco?.recommended && (() => {
+          const rec = reco.recommended;
+          const isCurrent = port && String(rec.port_id) === String(port.id);
+          const curOpt = (reco.options || []).find(
+            (o: any) => port && String(o.port_id) === String(port.id)
+          );
+          const savings = curOpt ? Number(curOpt.effective_wait) - Number(rec.effective_wait) : null;
+          const laneTxt = rec.lane ? ` · ${LANE_LABEL[rec.lane] || rec.lane}` : '';
+          return (
+            <TouchableOpacity
+              style={styles.hero}
+              activeOpacity={locked ? 1 : 0.85}
+              onPress={() => { if (!locked && rec.code) setPortCode(rec.code); }}
+            >
+              <Text style={styles.heroKicker}>👥 La comunidad recomienda</Text>
+              <Text style={styles.heroGarita}>
+                {isCurrent ? `${rec.name}${laneTxt} es la más rápida` : `Cruza por ${rec.name}${laneTxt}`}
+              </Text>
+              <View style={styles.heroBigRow}>
+                <Text style={styles.heroBig}>~{rec.effective_wait}</Text>
+                <Text style={styles.heroBigUnit}>min</Text>
+              </View>
+              {!isCurrent && savings != null && savings > 0 && (
+                <Text style={styles.heroDelta}>
+                  {savings} min más rápido que {port?.name}
+                </Text>
+              )}
+              {!isCurrent && (
+                <View style={styles.heroBtn}>
+                  <Text style={styles.heroBtnTxt}>Cambiar a {rec.name} ›</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
 
         {visiblePorts.length === 0 ? (
           <View style={styles.section}>
@@ -483,33 +630,55 @@ export default function HomeScreen({ navigation }: Props) {
               />
             </View>
 
+            {/* Detector en vivo "¿Estás en la línea?" (GPS vs geocerca) */}
             <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.notifCard}
-                onPress={toggleNotif}
-                disabled={notifLoading}
-                activeOpacity={0.85}
+              <View
+                style={[
+                  styles.lineBox,
+                  lineStatus === 'IN_LINE'
+                    ? styles.lineIn
+                    : lineStatus === 'OUTSIDE'
+                    ? styles.lineOut
+                    : styles.lineUnknown,
+                ]}
               >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.notifTitle}>
-                    🔔 Avisos de {reportsPortLabel}
-                    {targetLane ? ` · ${LANE_LABEL[targetLane] || targetLane}` : ''}
-                  </Text>
-                  <Text style={styles.notifSub}>
-                    {notifEnabled
-                      ? 'Activados — te avisamos si esta garita cambia'
-                      : 'Recibe un aviso si se satura, cierra un carril o fluye rápido'}
-                  </Text>
-                </View>
-                {notifLoading ? (
-                  <ActivityIndicator color={Colors.green} />
-                ) : (
-                  <View style={[styles.switch, notifEnabled && styles.switchOn]}>
-                    <View style={[styles.knob, notifEnabled && styles.knobOn]} />
-                  </View>
-                )}
-              </TouchableOpacity>
+                <Text style={styles.lineDot}>
+                  {lineStatus === 'IN_LINE' ? '🟢' : lineStatus === 'OUTSIDE' ? '⚪' : '📍'}
+                </Text>
+                <Text style={styles.lineText}>
+                  {lineStatus === 'IN_LINE'
+                    ? 'Estás en la línea de esta garita'
+                    : lineStatus === 'OUTSIDE'
+                    ? 'No estás en la línea de esta garita'
+                    : 'Detectando tu ubicación…'}
+                </Text>
+              </View>
             </View>
+
+            {/* Iniciar cruce — debajo de la pastilla de estimación */}
+            {!activeCrossing && targetPortId && !laneBlocked && (
+              <View style={styles.section}>
+                <TouchableOpacity
+                  style={[styles.ctaBtn, (loadingStart || lineStatus === 'OUTSIDE') && styles.ctaBtnDisabled]}
+                  onPress={handleStartCrossing}
+                  disabled={loadingStart || lineStatus === 'OUTSIDE'}
+                  activeOpacity={0.85}
+                >
+                  {loadingStart ? (
+                    <ActivityIndicator color={Colors.white} />
+                  ) : (
+                    <>
+                      <Text style={styles.ctaBtnText}>▶  Iniciar cruce por orden</Text>
+                      <Text style={styles.ctaBtnSub}>
+                        {lineStatus === 'OUTSIDE'
+                          ? 'Disponible cuando estés en la línea'
+                          : `${isPedwest ? 'PedWest' : port?.name} · ${LANE_LABEL[lane] || lane}`}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
 
@@ -572,23 +741,31 @@ export default function HomeScreen({ navigation }: Props) {
           )}
         </View>
 
-        {!activeCrossing && targetPortId && !laneBlocked && (
+        {targetPortId && (
           <View style={styles.section}>
             <TouchableOpacity
-              style={[styles.ctaBtn, loadingStart && styles.ctaBtnDisabled]}
-              onPress={handleStartCrossing}
-              disabled={loadingStart}
+              style={styles.notifCard}
+              onPress={toggleNotif}
+              disabled={notifLoading}
               activeOpacity={0.85}
             >
-              {loadingStart ? (
-                <ActivityIndicator color={Colors.white} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.notifTitle}>
+                  🔔 Avisos de {reportsPortLabel}
+                  {targetLane ? ` · ${LANE_LABEL[targetLane] || targetLane}` : ''}
+                </Text>
+                <Text style={styles.notifSub}>
+                  {notifEnabled
+                    ? 'Activados — te avisamos si esta garita cambia'
+                    : 'Recibe un aviso si se satura, cierra un carril o fluye rápido'}
+                </Text>
+              </View>
+              {notifLoading ? (
+                <ActivityIndicator color={Colors.green} />
               ) : (
-                <>
-                  <Text style={styles.ctaBtnText}>▶  Iniciar cruce</Text>
-                  <Text style={styles.ctaBtnSub}>
-                    {isPedwest ? 'PedWest' : port?.name} · {LANE_LABEL[lane] || lane}
-                  </Text>
-                </>
+                <View style={[styles.switch, notifEnabled && styles.switchOn]}>
+                  <View style={[styles.knob, notifEnabled && styles.knobOn]} />
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -654,6 +831,43 @@ const styles = StyleSheet.create({
   avatar: { fontSize: 22 },
   greetingHi: { color: Colors.darkText, fontSize: 20, fontWeight: '800' },
   greetingSub: { color: Colors.darkTextSecondary, fontSize: 13, marginTop: 2 },
+  logoBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 2 },
+  recoBanner: {
+    marginHorizontal: 20, marginTop: 12,
+    backgroundColor: '#0F2A4A', borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1, borderColor: 'rgba(92,147,255,0.4)',
+  },
+  recoText: { color: '#DDE9FF', fontSize: 13.5, fontWeight: '700' },
+  recoHint: { color: Colors.commBlue, fontSize: 11, marginTop: 3, fontWeight: '600' },
+  hero: {
+    marginHorizontal: 20, marginTop: 12,
+    backgroundColor: Colors.darkTileBlue, borderRadius: 16,
+    padding: 16, borderWidth: 1, borderColor: 'rgba(110,168,255,0.4)',
+  },
+  heroKicker: {
+    color: Colors.commBlue, fontSize: 11, fontWeight: '800',
+    letterSpacing: 0.6, textTransform: 'uppercase',
+  },
+  heroGarita: { color: Colors.darkText, fontSize: 19, fontWeight: '800', marginTop: 4 },
+  heroBigRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 2 },
+  heroBig: { color: Colors.commBlue, fontSize: 32, fontWeight: '800' },
+  heroBigUnit: { color: Colors.commBlue, fontSize: 14, fontWeight: '700' },
+  heroDelta: { color: '#BCD0F5', fontSize: 12.5, marginTop: 2 },
+  heroBtn: {
+    marginTop: 12, backgroundColor: Colors.primary, borderRadius: 11,
+    paddingVertical: 11, alignItems: 'center',
+  },
+  heroBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  lineBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1,
+  },
+  lineIn: { backgroundColor: 'rgba(47,191,113,0.12)', borderColor: 'rgba(47,191,113,0.45)' },
+  lineOut: { backgroundColor: Colors.darkTile, borderColor: Colors.darkBorder },
+  lineUnknown: { backgroundColor: Colors.darkTile, borderColor: Colors.darkBorder },
+  lineDot: { fontSize: 14 },
+  lineText: { color: Colors.darkText, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   activeBanner: {
     marginHorizontal: 20, marginTop: 8,
     backgroundColor: Colors.darkSurface,
@@ -764,9 +978,9 @@ const styles = StyleSheet.create({
   },
   knobOn: { backgroundColor: '#FFFFFF', alignSelf: 'flex-end' },
   ctaBtn: {
-    backgroundColor: Colors.green, borderRadius: 16,
+    backgroundColor: Colors.primary, borderRadius: 16,
     paddingVertical: 18, alignItems: 'center',
-    shadowColor: Colors.green, shadowOffset: { width: 0, height: 4 },
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 10, elevation: 4,
   },
   ctaBtnDisabled: { opacity: 0.5 },

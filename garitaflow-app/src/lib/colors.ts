@@ -26,18 +26,20 @@ export const Colors = {
   tabActive: '#071E5B',
   tabInactive: '#AEB4C2',
 
-  // Dark theme (GaritaFlow)
-  darkBg: '#0A1230',          // fondo de pantalla
-  darkSurface: '#131E48',     // tarjetas
-  darkTile: '#0E1838',        // tile CBP / chips inactivos
-  darkTileBlue: '#10265C',    // tile comunidad
-  darkBorder: 'rgba(255,255,255,0.07)',
-  darkText: '#EDF1FB',
-  darkTextSecondary: '#9AA6C8',
-  darkTextMuted: '#697596',
-  darkTrack: '#26305A',       // fondo de la barra
-  commBlue: '#5C93FF',        // azul comunidad legible en oscuro
-  confGreen: '#2FBF71',       // confianza / OK en oscuro
+  // Dark theme — Paleta A (Midnight elegante)
+  darkBg: '#0B1020',          // fondo de pantalla
+  darkSurface: '#131A2E',     // tarjetas
+  darkTile: '#0E1526',        // tile CBP / chips inactivos
+  darkTileBlue: '#0E1930',    // tile comunidad
+  darkBorder: 'rgba(255,255,255,0.06)',
+  darkText: '#EAF0FF',
+  darkTextSecondary: '#9FB0D6',
+  darkTextMuted: '#6D7AA0',
+  darkTrack: '#1D2740',       // fondo de la barra
+  commBlue: '#6EA8FF',        // azul comunidad legible en oscuro
+  confGreen: '#46D090',       // confianza / OK en oscuro
+  primary: '#2563EB',         // acción primaria (paleta A)
+  dangerSoft: '#F98A97',      // rojo tenue para badges/alertas
 } as const;
 
 export type ColorKey = keyof typeof Colors;

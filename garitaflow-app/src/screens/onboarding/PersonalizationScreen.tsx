@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
@@ -25,22 +26,42 @@ const CITIES = [
   { id: 'juarez', label: 'Cd. Juárez', flag: '🏜️' },
 ];
 
-const GARITAS = ['San Ysidro', 'Otay', 'Tecate', 'PedWest', 'Puerta México', 'Garita Andrade'];
+// Garitas agrupadas por ciudad (así se sabe a qué ciudad pertenece cada una)
+const GARITAS_BY_CITY: Record<string, string[]> = {
+  tijuana: ['San Ysidro', 'Otay Mesa', 'PedWest', 'Puerta México', 'Tecate'],
+  mexicali: ['Mexicali — Garita 1', 'Mexicali — Garita 2'],
+  nogales: ['Nogales — Mariposa', 'Nogales — DeConcini'],
+  juarez: ['Cd. Juárez — Córdova', 'Cd. Juárez — Santa Fe'],
+};
 
-// 24 avatar emoji bank — fun, diverse, no copyright
+// Banco de avatares (emoji, sin copyright). Los últimos 10 son los nuevos pedidos.
 const AVATARS = [
   '😎', '🤠', '👩‍💻', '👨‍🍳', '🧑‍🎤', '👩‍🚀',
   '🦸', '🧙‍♂️', '🕵️', '👩‍⚕️', '👨‍🏫', '🧑‍🌾',
   '🐺', '🦊', '🐸', '🤖', '👾', '🦄',
   '🌵', '🍕', '🚗', '🛸', '⚡', '🎸',
+  // nuevos: bailarina, vaca, boston terrier, pepino, salchicha,
+  // pingüino, queso, llama, suricata (más cercano), oso perezoso
+  '🩰', '🐄', '🐶', '🥒', '🌭', '🐧', '🧀', '🦙', '🦫', '🦥',
 ];
 
 export default function PersonalizationScreen({ navigation }: Props) {
   const { updateUser } = useAuth();
+  const insets = useSafeAreaInsets();
   const [selectedCity, setSelectedCity] = useState<string>('tijuana');
   const [selectedGarita, setSelectedGarita] = useState<string>('San Ysidro');
   const [selectedAvatar, setSelectedAvatar] = useState<string>('😎');
   const [loading, setLoading] = useState(false);
+
+  const cityLabel = CITIES.find((c) => c.id === selectedCity)?.label ?? '';
+  const garitas = GARITAS_BY_CITY[selectedCity] ?? [];
+
+  const onSelectCity = (cityId: string) => {
+    setSelectedCity(cityId);
+    // al cambiar de ciudad, selecciona su primera garita
+    const first = (GARITAS_BY_CITY[cityId] ?? [])[0];
+    if (first) setSelectedGarita(first);
+  };
 
   const handleContinue = async () => {
     setLoading(true);
@@ -53,7 +74,6 @@ export default function PersonalizationScreen({ navigation }: Props) {
       updateUser({ selected_city: selectedCity, selected_garita: selectedGarita, avatar_key: selectedAvatar });
       navigation.navigate('NotificationPermission');
     } catch {
-      // Continue anyway — preferences can be set later
       navigation.navigate('NotificationPermission');
     } finally {
       setLoading(false);
@@ -62,7 +82,13 @@ export default function PersonalizationScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 36, paddingBottom: insets.bottom + 32 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Personaliza tu{'\n'}experiencia</Text>
         <Text style={styles.sub}>Puedes cambiar esto en cualquier momento.</Text>
 
@@ -72,10 +98,7 @@ export default function PersonalizationScreen({ navigation }: Props) {
           {AVATARS.map((emoji) => (
             <TouchableOpacity
               key={emoji}
-              style={[
-                styles.avatarCell,
-                selectedAvatar === emoji && styles.avatarSelected,
-              ]}
+              style={[styles.avatarCell, selectedAvatar === emoji && styles.avatarSelected]}
               onPress={() => setSelectedAvatar(emoji)}
               activeOpacity={0.7}
             >
@@ -91,7 +114,7 @@ export default function PersonalizationScreen({ navigation }: Props) {
             <TouchableOpacity
               key={c.id}
               style={[styles.cityCard, selectedCity === c.id && styles.cityCardSelected]}
-              onPress={() => setSelectedCity(c.id)}
+              onPress={() => onSelectCity(c.id)}
               activeOpacity={0.75}
             >
               <Text style={styles.cityFlag}>{c.flag}</Text>
@@ -102,10 +125,13 @@ export default function PersonalizationScreen({ navigation }: Props) {
           ))}
         </View>
 
-        {/* Garita selector */}
+        {/* Garita selector — agrupado bajo la ciudad seleccionada */}
         <Text style={styles.sectionTitle}>Tu garita frecuente</Text>
+        <View style={styles.cityGroupHeader}>
+          <Text style={styles.cityGroupText}>{cityLabel}</Text>
+        </View>
         <View style={styles.garitaList}>
-          {GARITAS.map((g) => (
+          {garitas.map((g) => (
             <TouchableOpacity
               key={g}
               style={[styles.garitaRow, selectedGarita === g && styles.garitaRowSelected]}
@@ -145,8 +171,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
   content: {
     paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 40,
   },
   title: {
     fontSize: 30,
@@ -211,6 +235,20 @@ const styles = StyleSheet.create({
   cityFlag: { fontSize: 24 },
   cityLabel: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
   cityLabelSelected: { color: Colors.green },
+  cityGroupHeader: {
+    backgroundColor: '#EEF2FB',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  cityGroupText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.navyGarita,
+    letterSpacing: 0.5,
+  },
   garitaList: { gap: 8 },
   garitaRow: {
     flexDirection: 'row',

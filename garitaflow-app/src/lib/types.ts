@@ -8,6 +8,9 @@ export interface User {
   selected_city?: string;
   selected_garita?: string;
   avatar_key?: string;
+  has_sentri?: boolean;
+  vehicle_key?: string;
+  vehicle_color?: string;
   total_xp: number;
   level: number;
   total_crossings: number;
@@ -145,7 +148,13 @@ export type RootStackParamList = {
   NotificationPermission: undefined;
   LocationPermission: undefined;
   MainTabs: undefined;
-  ActiveCrossing: { crossingId: string; portName: string };
+  ActiveCrossing: {
+    crossingId: string;
+    portName: string;
+    portId?: string;
+    laneLabel?: string;
+    startedAt?: string;
+  };
   Report: { crossingId: string; portId: string };
   ReportSent: { eventType: string; xpEarned: number };
   AlertSettings: undefined;
@@ -153,5 +162,6 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
+  MyCrossings: undefined;
   Profile: undefined;
 };

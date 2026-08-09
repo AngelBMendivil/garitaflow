@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import Logo from '../../components/Logo';
 
 type Props = {
@@ -23,7 +24,8 @@ type Props = {
 };
 
 export default function LoginScreen({ navigation }: Props) {
-  const { login, isOnboarded } = useAuth();
+  const { login } = useAuth();
+  const { signIn: googleSignIn, loading: googleLoading, disabled: googleDisabled } = useGoogleAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -101,9 +103,18 @@ export default function LoginScreen({ navigation }: Props) {
             <View style={styles.line} />
           </View>
 
-          {/* Google Sign-In placeholder */}
-          <TouchableOpacity style={styles.googleBtn} activeOpacity={0.85}>
-            <Text style={styles.googleText}>🇬 Continuar con Google</Text>
+          {/* Google Sign-In */}
+          <TouchableOpacity
+            style={[styles.googleBtn, (googleLoading || googleDisabled) && styles.btnDisabled]}
+            activeOpacity={0.85}
+            onPress={googleSignIn}
+            disabled={googleLoading || googleDisabled}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color={Colors.textPrimary} />
+            ) : (
+              <Text style={styles.googleText}>🇬 Continuar con Google</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity

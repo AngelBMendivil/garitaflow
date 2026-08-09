@@ -20,6 +20,7 @@ import LocationPermissionScreen from '../screens/onboarding/LocationPermissionSc
 
 // Main screens
 import HomeScreen from '../screens/main/HomeScreen';
+import MyCrossingsScreen from '../screens/main/MyCrossingsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import AlertSettingsScreen from '../screens/profile/AlertSettingsScreen';
 
@@ -27,6 +28,7 @@ import AlertSettingsScreen from '../screens/profile/AlertSettingsScreen';
 import ActiveCrossingScreen from '../screens/crossing/ActiveCrossingScreen';
 import ReportScreen from '../screens/crossing/ReportScreen';
 import ReportSentScreen from '../screens/crossing/ReportSentScreen';
+import AnimatedSplash from '../components/AnimatedSplash';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -34,6 +36,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, { active: string; inactive: string }> = {
     Home: { active: '🏠', inactive: '🏡' },
+    MyCrossings: { active: '⏰', inactive: '⏰' },
     Profile: { active: '👤', inactive: '👥' },
   };
   const icon = icons[name];
@@ -71,17 +74,14 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Inicio' }} />
+      <Tab.Screen name="MyCrossings" component={MyCrossingsScreen} options={{ title: 'Mis cruces' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Perfil' }} />
     </Tab.Navigator>
   );
 }
 
 function LoadingScreen() {
-  return (
-    <View style={styles.loading}>
-      <ActivityIndicator size="large" color={Colors.navyGarita} />
-    </View>
-  );
+  return <AnimatedSplash />;
 }
 
 export default function RootNavigator() {

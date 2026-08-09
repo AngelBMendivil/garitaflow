@@ -15,6 +15,22 @@ import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useCrossing } from '../../hooks/useCrossing';
 import { flowEventsApi } from '../../lib/api';
+import ShareCrossingButton from '../../components/ShareCrossingButton';
+import { useLineDetector } from '../../hooks/useLineDetector';
+import Logo from '../../components/Logo';
+import Confetti from '../../components/Confetti';
+
+// Formatea un ISO a hora local 12h (ej. "8:10 a.m."). Robusto en Hermes.
+function fmtTime(iso?: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ap = h < 12 ? 'a.m.' : 'p.m.';
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
+}
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ActiveCrossing'>;
@@ -46,13 +62,19 @@ const timeAgo = (iso: string) => {
 
 export default function ActiveCrossingScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { crossingId, portName } = route.params;
+  const { crossingId, portName, laneLabel, portId: routePortId } = route.params;
   const { activeCrossing, formattedTime, endCrossing, loading } = useCrossing();
+  const lineStatus = useLineDetector(activeCrossing?.port_id ?? null);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
   const [sentType, setSentType] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [finished, setFinished] = useState<{
+    minutes: number;
+    startedAt?: string;
+    endedAt?: string;
+  } | null>(null);
 
   const loadEvents = useCallback(() => {
     if (!activeCrossing?.port_id) return;
@@ -78,21 +100,33 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
 
   const doEndCrossing = async () => {
     setConfirmEnd(false);
-    const result = await endCrossing();
-    if (result) navigation.replace('MainTabs' as any);
+    const result: any = await endCrossing();
+    if (result) {
+      const secs = Number(result.duration_seconds) || 0;
+      setFinished({
+        minutes: Math.max(1, Math.round(secs / 60)),
+        startedAt: result.started_at,
+        endedAt: result.ended_at,
+      });
+    }
   };
 
   // El reporte rápido ahora sí envía el tipo, sin pasar por otra pantalla.
   const handleQuickEvent = async (type: string) => {
-    if (!activeCrossing?.port_id || sending) return;
+    const pid = String(activeCrossing?.port_id || routePortId || '');
+    if (!pid || sending) return;
+    if (lineStatus === 'OUTSIDE') {
+      setFeedback('Solo puedes reportar cuando estás en la línea de esta garita.');
+      return;
+    }
     setSending(type);
     setFeedback(null);
     try {
       await flowEventsApi.create({
-        port_id: activeCrossing.port_id,
+        port_id: pid,
         crossing_id: crossingId,
         event_type: type,
-        lane_type: activeCrossing.lane_type,
+        lane_type: activeCrossing?.lane_type,
       });
       setSentType(type);
       setFeedback(`${EVENT_LABEL[type]} reportado · +20 XP`);
@@ -104,6 +138,68 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
       setSending(null);
     }
   };
+
+  if (finished) {
+    return (
+      <View style={styles.safe}>
+        <Confetti />
+        <ScrollView
+          contentContainerStyle={[
+            styles.finishWrap,
+            { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Logo variant="light" size={30} />
+
+          <Text style={styles.finishEmoji}>🎉</Text>
+          <Text style={styles.finishTitle}>¡Cruzaste!</Text>
+          <Text style={styles.finishBig}>{finished.minutes} min</Text>
+
+          {/* Dónde cruzaste: garita + carril */}
+          <View style={styles.finishWhereRow}>
+            <Text style={styles.finishWhere}>{portName}</Text>
+            {laneLabel && !portName.includes(laneLabel) ? (
+              <Text style={styles.finishLane}>{laneLabel}</Text>
+            ) : null}
+          </View>
+
+          {/* Horas de inicio y fin */}
+          <View style={styles.timesCard}>
+            <View style={styles.timeCell}>
+              <Text style={styles.timeLabel}>Inicio</Text>
+              <Text style={styles.timeValue}>{fmtTime(finished.startedAt)}</Text>
+            </View>
+            <Text style={styles.timeArrow}>→</Text>
+            <View style={styles.timeCell}>
+              <Text style={styles.timeLabel}>Fin</Text>
+              <Text style={styles.timeValue}>{fmtTime(finished.endedAt)}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.finishNote}>
+            Tu tiempo se sumó al promedio de la comunidad para esta garita.
+          </Text>
+
+          <View style={styles.finishActions}>
+            <ShareCrossingButton
+              moment="finish"
+              portName={portName}
+              minutes={finished.minutes}
+              fullWidth
+            />
+            <TouchableOpacity
+              style={styles.finishDone}
+              onPress={() => navigation.replace('MainTabs' as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.finishDoneTxt}>Listo</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.safe}>
@@ -136,9 +232,13 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
           {QUICK_EVENTS.map((e) => (
             <TouchableOpacity
               key={e.type}
-              style={[styles.quickEvent, sentType === e.type && styles.quickEventSent]}
+              style={[
+                styles.quickEvent,
+                sentType === e.type && styles.quickEventSent,
+                lineStatus === 'OUTSIDE' && styles.quickEventLocked,
+              ]}
               onPress={() => handleQuickEvent(e.type)}
-              disabled={!!sending}
+              disabled={!!sending || lineStatus === 'OUTSIDE'}
               activeOpacity={0.75}
             >
               {sending === e.type ? (
@@ -152,8 +252,19 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           ))}
           <TouchableOpacity
-            style={styles.quickEvent}
-            onPress={() => navigation.navigate('Report', { crossingId, portId: activeCrossing?.port_id || '' })}
+            style={[styles.quickEvent, lineStatus === 'OUTSIDE' && styles.quickEventLocked]}
+            onPress={() => {
+              if (lineStatus === 'OUTSIDE') {
+                setFeedback('Solo puedes reportar cuando estás en la línea de esta garita.');
+                return;
+              }
+              const pid = String(activeCrossing?.port_id || routePortId || '');
+              if (!pid) {
+                setFeedback('No pudimos identificar la garita de este cruce. Reintenta en un momento.');
+                return;
+              }
+              navigation.navigate('Report', { crossingId, portId: pid });
+            }}
             activeOpacity={0.75}
           >
             <Text style={styles.quickEmoji}>📋</Text>
@@ -166,6 +277,9 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
             <Text style={styles.feedbackText}>{feedback}</Text>
           </View>
         )}
+
+        <View style={{ height: 12 }} />
+        <ShareCrossingButton moment="start" portName={portName} compact />
 
         {recentEvents.length > 0 && (
           <>
@@ -281,6 +395,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   quickEventSent: { borderColor: Colors.green, backgroundColor: '#E8F5EF' },
+  quickEventLocked: { opacity: 0.45 },
   quickEmoji: { fontSize: 28 },
   quickLabel: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
   feedbackBox: {
@@ -341,4 +456,27 @@ const styles = StyleSheet.create({
   confirmNoText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
   confirmYes: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.red, alignItems: 'center' },
   confirmYesText: { fontSize: 15, fontWeight: '700', color: Colors.white },
+  finishWrap: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
+  finishEmoji: { fontSize: 56, marginTop: 18 },
+  finishTitle: { fontSize: 26, fontWeight: '800', color: Colors.navyGarita, marginTop: 8 },
+  finishBig: { fontSize: 56, fontWeight: '800', color: Colors.green, marginTop: 6 },
+  finishWhereRow: { alignItems: 'center', marginTop: 4, gap: 2 },
+  finishWhere: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
+  finishLane: { fontSize: 14, fontWeight: '700', color: Colors.blueFlow },
+  timesCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18,
+    backgroundColor: Colors.white, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 22,
+    marginTop: 16, borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  timeCell: { alignItems: 'center' },
+  timeLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  timeValue: { fontSize: 17, fontWeight: '800', color: Colors.navyGarita, marginTop: 2 },
+  timeArrow: { fontSize: 18, color: Colors.textMuted, fontWeight: '700' },
+  finishNote: { fontSize: 13, color: Colors.textSecondary, marginTop: 14, textAlign: 'center', lineHeight: 19 },
+  finishActions: { width: '100%', maxWidth: 320, alignSelf: 'center', marginTop: 20, gap: 10 },
+  finishDone: {
+    paddingVertical: 15, borderRadius: 14, alignItems: 'center',
+    backgroundColor: '#E9EEF6', borderWidth: 1.5, borderColor: '#CBD5E1',
+  },
+  finishDoneTxt: { fontSize: 16, fontWeight: '800', color: Colors.navyGarita },
 });

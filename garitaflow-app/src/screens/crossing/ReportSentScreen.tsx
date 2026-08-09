@@ -12,6 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
+import ShareCrossingButton from '../../components/ShareCrossingButton';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ReportSent'>;
@@ -39,12 +40,6 @@ export default function ReportSentScreen({ navigation, route }: Props) {
         useNativeDriver: true,
       }),
     ]).start();
-
-    const timer = setTimeout(() => {
-      navigation.goBack();
-    }, 2500);
-
-    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -63,6 +58,8 @@ export default function ReportSentScreen({ navigation, route }: Props) {
           </View>
 
           <Text style={styles.eventType}>{eventType}</Text>
+          <View style={{ height: 10 }} />
+          <ShareCrossingButton moment="incident" incidentLabel={eventType} compact />
         </Animated.View>
 
         <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>

@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../../lib/types';
 import Logo from '../../components/Logo';
 import { Colors } from '../../lib/colors';
@@ -20,11 +21,18 @@ type Props = {
 const CITIES = ['Tijuana', 'Mexicali', 'Nogales', 'El Paso'];
 
 export default function WelcomeScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.bg}>
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.logoContainer}>
             <Logo size={64} showText />
           </View>

@@ -9,7 +9,10 @@
     "start": "node dist/index.js",
     "migrate": "ts-node src/lib/migrate.ts",
     "migrate:all": "ts-node src/lib/migrate-all.ts",
-    "migrate:gamification": "ts-node src/lib/migrate-gamification.ts"
+    "migrate:gamification": "ts-node src/lib/migrate-gamification.ts",
+    "migrate:geofences": "ts-node src/lib/migrate-geofences.ts",
+    "migrate:alarms": "ts-node src/lib/migrate-alarms.ts",
+    "migrate:extras": "ts-node src/lib/migrate-extras.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

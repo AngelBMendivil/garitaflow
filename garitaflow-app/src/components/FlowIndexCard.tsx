@@ -66,11 +66,16 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
   const cbpWait = hasCbp ? Math.round(Number(cbpRaw)) : null;
   const cbpAgo = agoLabel(data.cbp?.updated_at ?? data.cbp?.reported_at);
 
-  // ─── Comunidad (aparece sola cuando el backend la exponga) ─────────────────
-  const commRaw = data.community?.wait_minutes ?? data.community?.wait;
+  // ─── Comunidad: promedio de tiempos reales de cruce + N usuarios ───────────
+  const commRaw =
+    data.community?.avg_minutes ?? data.community?.wait_minutes ?? data.community?.wait;
   const hasComm = commRaw !== null && commRaw !== undefined;
   const commWait = hasComm ? Math.round(Number(commRaw)) : null;
-  const sample = data.community?.sample_size ?? null;
+  const sample = data.community?.users ?? data.community?.sample_size ?? null;
+
+  // ─── Puertas / carriles abiertos (CBP) ─────────────────────────────────────
+  const lanesOpen = data.cbp?.lanes_open;
+  const hasDoors = lanesOpen !== null && lanesOpen !== undefined && Number(lanesOpen) > 0;
 
   // Veredicto: solo tiene sentido comparando ambas fuentes.
   const delta = hasCbp && hasComm ? (commWait as number) - (cbpWait as number) : null;
@@ -125,10 +130,17 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
                 <Text style={[styles.panelUnit, { color: Colors.commBlue }]}>min</Text>
               </View>
               <Text style={[styles.panelMeta, { color: Colors.commBlue }]}>
-                {sample ? `promedio de ${sample} cruce${sample === 1 ? '' : 's'}` : 'reportes recientes'}
+                {sample ? `promedio de ${sample} usuario${sample === 1 ? '' : 's'}` : 'aún sin cronometrar'}
               </Text>
             </View>
           )}
+        </View>
+      )}
+
+      {/* ─── Puertas abiertas ───────────────────────────────────────────── */}
+      {hasDoors && (
+        <View style={styles.doorsChip}>
+          <Text style={styles.doorsText}>🚧 {Number(lanesOpen)} puertas abiertas</Text>
         </View>
       )}
 
@@ -137,24 +149,16 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
         <View
           style={[
             styles.verdict,
-            { backgroundColor: faster ? '#EFF9F2' : '#FEF6E7' },
+            { backgroundColor: faster ? 'rgba(70,208,144,0.12)' : 'rgba(245,180,74,0.12)' },
           ]}
         >
           <Text
             style={[
               styles.verdictText,
-              { color: faster ? '#00834F' : '#B45309' },
+              { color: faster ? Colors.confGreen : Colors.flowMedium },
             ]}
           >
-            {faster ? 'La fila avanza más rápido' : 'La fila avanza más lento'}
-          </Text>
-          <Text
-            style={[
-              styles.verdictDelta,
-              { color: faster ? '#00834F' : '#B45309' },
-            ]}
-          >
-            {(delta as number) > 0 ? `+${delta}` : delta} min
+            La comunidad dice que es {Math.abs(delta as number)} min más {faster ? 'rápido' : 'lento'}
           </Text>
         </View>
       )}
@@ -257,6 +261,8 @@ const styles = StyleSheet.create({
   },
   panelComm: {
     backgroundColor: Colors.darkTileBlue,
+    borderWidth: 1.5,
+    borderColor: 'rgba(110,168,255,0.35)',
   },
   panelLabel: {
     fontSize: 12,
@@ -285,6 +291,19 @@ const styles = StyleSheet.create({
     color: Colors.darkTextSecondary,
     marginTop: 4,
   },
+  doorsChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(47,191,113,0.12)',
+    borderColor: 'rgba(47,191,113,0.4)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 12,
+  },
+  doorsText: { color: Colors.confGreen, fontSize: 12, fontWeight: '700' },
 
   verdict: {
     flexDirection: 'row',

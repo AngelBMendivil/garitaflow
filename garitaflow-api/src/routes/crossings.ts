@@ -109,11 +109,15 @@ router.post('/:id/end', requireAuth, async (req: AuthRequest, res: Response) => 
 // GET /crossings/active
 router.get('/active', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
+    // LEFT JOIN: si la garita del cruce quedó huérfana (re-seed de ports),
+    // igual devolvemos el cruce para que la app pueda mostrarlo y cerrarlo.
     const crossing = await queryOne(
       `SELECT c.*, p.name as port_name, p.code as port_code
        FROM crossings c
-       JOIN ports p ON p.id = c.port_id
-       WHERE c.user_id = $1 AND c.ended_at IS NULL`,
+       LEFT JOIN ports p ON p.id = c.port_id
+       WHERE c.user_id = $1 AND c.ended_at IS NULL
+       ORDER BY c.started_at DESC
+       LIMIT 1`,
       [req.user!.userId]
     );
 

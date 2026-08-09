@@ -134,13 +134,54 @@ router.post('/google', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /auth/me — elimina la cuenta del usuario y todos sus datos.
+// Requisito de Google Play (borrado de cuenta dentro de la app).
+// Se apoya en ON DELETE CASCADE de las FKs; además limpiamos de forma
+// explícita las tablas que pudieran no tener cascada, sin fallar si no existen.
+router.delete('/me', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    // Borrados explícitos best-effort (por si alguna tabla no tiene cascada).
+    // Cada uno va en su try para no abortar el flujo si la tabla no existe.
+    const softTables = [
+      'client_logs',
+      'recurring_notifications_log',
+      'recurring_crossings',
+      'push_tokens',
+      'crossings',
+      'flow_events',
+      'profiles',
+    ];
+    for (const t of softTables) {
+      try {
+        await query(`DELETE FROM ${t} WHERE user_id = $1`, [userId]);
+      } catch {
+        // tabla inexistente o sin columna user_id → se ignora
+      }
+    }
+
+    const del = await queryOne<{ id: string }>(
+      `DELETE FROM users WHERE id = $1 RETURNING id`,
+      [userId]
+    );
+
+    if (!del) return res.status(404).json({ error: 'User not found' });
+    return res.json({ ok: true, deleted: del.id });
+  } catch (err) {
+    console.error('delete account error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /auth/me
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const user = await queryOne(
       `SELECT u.id, u.email, u.name, u.avatar_url,
               p.selected_city, p.selected_garita, p.avatar_key,
-              p.total_xp, p.level, p.total_crossings
+              p.total_xp, p.level, p.total_crossings,
+              p.has_sentri, p.vehicle_key, p.vehicle_color
        FROM users u
        LEFT JOIN profiles p ON p.user_id = u.id
        WHERE u.id = $1`,

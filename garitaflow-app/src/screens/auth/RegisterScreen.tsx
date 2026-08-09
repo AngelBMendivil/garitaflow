@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import Logo from '../../components/Logo';
 
 type Props = {
@@ -23,6 +24,7 @@ type Props = {
 
 export default function RegisterScreen({ navigation }: Props) {
   const { register } = useAuth();
+  const { signIn: googleSignIn, loading: googleLoading, disabled: googleDisabled } = useGoogleAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,7 +63,7 @@ export default function RegisterScreen({ navigation }: Props) {
             <Text style={styles.backText}>← Volver</Text>
           </TouchableOpacity>
 
-          <Logo size={40} />
+          <Logo size={40} variant="light" />
           <Text style={styles.title}>Crear cuenta</Text>
 
           <View style={styles.form}>
@@ -121,8 +123,17 @@ export default function RegisterScreen({ navigation }: Props) {
             <View style={styles.line} />
           </View>
 
-          <TouchableOpacity style={styles.googleBtn} activeOpacity={0.85}>
-            <Text style={styles.googleText}>🇬 Registrarse con Google</Text>
+          <TouchableOpacity
+            style={[styles.googleBtn, (googleLoading || googleDisabled) && styles.btnDisabled]}
+            activeOpacity={0.85}
+            onPress={googleSignIn}
+            disabled={googleLoading || googleDisabled}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color={Colors.textPrimary} />
+            ) : (
+              <Text style={styles.googleText}>🇬 Registrarse con Google</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity

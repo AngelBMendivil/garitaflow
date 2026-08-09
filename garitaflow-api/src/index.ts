@@ -16,6 +16,8 @@ import alertsRouter from './routes/alerts';
 import cronRouter from './routes/cron';
 import portsRouter from './routes/ports';
 import gamificationRouter from './routes/gamification';
+import recurringRouter from './routes/recurring';
+import logsRouter from './routes/logs';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -81,6 +83,8 @@ app.use('/alerts', alertsRouter);
 app.use('/cron', cronRouter);
 app.use('/ports', portsRouter);
 app.use('/gamification', gamificationRouter);
+app.use('/recurring', recurringRouter);
+app.use('/logs', logsRouter);
 
 // 404 fallback
 app.use((_req, res) => {

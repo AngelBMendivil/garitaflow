@@ -4,11 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -48,6 +48,7 @@ const EVENT_OPTIONS: { type: EventType; emoji: string; label: string; desc: stri
 ];
 
 export default function ReportScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const { crossingId, portId } = route.params;
   const [selected, setSelected] = useState<EventType | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,6 +56,10 @@ export default function ReportScreen({ navigation, route }: Props) {
   const handleSubmit = async () => {
     if (!selected) {
       Alert.alert('Selecciona un evento', 'Elige qué está pasando en tu garita.');
+      return;
+    }
+    if (!portId) {
+      Alert.alert('Garita no identificada', 'No pudimos identificar la garita de este reporte. Vuelve a intentarlo.');
       return;
     }
     setLoading(true);
@@ -80,7 +85,7 @@ export default function ReportScreen({ navigation, route }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.safe, { paddingTop: insets.top }]}>
       {/* Bottom sheet header */}
       <View style={styles.handle}>
         <View style={styles.handleBar} />
@@ -114,7 +119,7 @@ export default function ReportScreen({ navigation, route }: Props) {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
           <Text style={styles.cancelText}>Cancelar</Text>
         </TouchableOpacity>
@@ -131,7 +136,7 @@ export default function ReportScreen({ navigation, route }: Props) {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

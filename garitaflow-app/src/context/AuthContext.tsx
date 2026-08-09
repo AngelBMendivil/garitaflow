@@ -10,7 +10,9 @@ interface AuthContextType {
   isOnboarded: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  googleLogin: (data: { google_id: string; email: string; name: string; avatar_url?: string }) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   updateUser: (partial: Partial<User>) => void;
   setOnboarded: () => Promise<void>;
 }
@@ -94,11 +96,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsOnboardedState(false); // usuario nuevo: sí pasa por onboarding
   };
 
+  // Login con Google: el backend hace find-or-create y devuelve token + user.
+  // Un usuario de Google puede ya tener preferencias (reinstalación), así que
+  // hidratamos el perfil igual que en el login por correo.
+  const googleLogin = async (data: { google_id: string; email: string; name: string; avatar_url?: string }) => {
+    const { token: t, user: u } = await authApi.google(
+      data.google_id, data.email, data.name, data.avatar_url
+    );
+    await Storage.setToken(t);
+    setToken(t);
+    await hydrateProfile(u);
+  };
+
   const logout = async () => {
     await Storage.clearAll();
     setToken(null);
     setUser(null);
     setIsOnboardedState(false);
+  };
+
+  // Borra la cuenta en el servidor y limpia el estado local (sesión cerrada).
+  const deleteAccount = async () => {
+    try {
+      await authApi.deleteAccount();
+    } finally {
+      await Storage.clearAll();
+      setToken(null);
+      setUser(null);
+      setIsOnboardedState(false);
+    }
   };
 
   const updateUser = (partial: Partial<User>) => {
@@ -118,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, isOnboarded, login, register, logout, updateUser, setOnboarded }}
+      value={{ user, token, isLoading, isOnboarded, login, register, googleLogin, logout, deleteAccount, updateUser, setOnboarded }}
     >
       {children}
     </AuthContext.Provider>

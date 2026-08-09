@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../db';
+import { evaluateAlarms } from '../lib/alarms';
 
 const router = Router();
 
@@ -76,12 +77,78 @@ router.post('/cleanup', async (req: Request, res: Response) => {
        ) SELECT COUNT(*)::text as count FROM deleted`
     );
 
+    // Retención de datos: purga best-effort de tablas que crecen con el uso.
+    // Cada una en su try para no abortar si la tabla aún no existe en el entorno.
+    async function purge(sql: string): Promise<number> {
+      try {
+        const [r] = await query<{ count: string }>(sql);
+        return Number(r?.count || 0);
+      } catch {
+        return 0;
+      }
+    }
+
+    const logsDeleted = await purge(
+      `WITH deleted AS (
+         DELETE FROM client_logs
+         WHERE created_at < NOW() - INTERVAL '90 days'
+         RETURNING id
+       ) SELECT COUNT(*)::text as count FROM deleted`
+    );
+
+    const notifLogDeleted = await purge(
+      `WITH deleted AS (
+         DELETE FROM recurring_notifications_log
+         WHERE created_at < NOW() - INTERVAL '45 days'
+         RETURNING id
+       ) SELECT COUNT(*)::text as count FROM deleted`
+    );
+
+    const pingsDeleted = await purge(
+      `WITH deleted AS (
+         DELETE FROM user_location_pings
+         WHERE created_at < NOW() - INTERVAL '30 days'
+         RETURNING id
+       ) SELECT COUNT(*)::text as count FROM deleted`
+    );
+
+    // Auto-cierre de cruces olvidados (abiertos > 12h). Se cierran con
+    // duration_seconds = NULL para NO contaminar el promedio de la comunidad
+    // (esos promedios exigen duration_seconds > 0). Esto desatora al usuario
+    // que quedó con un cruce fantasma bloqueando el inicio de uno nuevo.
+    const staleClosed = await purge(
+      `WITH closed AS (
+         UPDATE crossings
+            SET ended_at = NOW(), duration_seconds = NULL
+          WHERE ended_at IS NULL
+            AND started_at < NOW() - INTERVAL '12 hours'
+          RETURNING id
+       ) SELECT COUNT(*)::text as count FROM closed`
+    );
+
     return res.json({
       events_deleted: Number(eventsResult?.count || 0),
       cache_entries_deleted: Number(cacheResult?.count || 0),
+      client_logs_deleted: logsDeleted,
+      recurring_notif_log_deleted: notifLogDeleted,
+      location_pings_deleted: pingsDeleted,
+      stale_crossings_closed: staleClosed,
     });
   } catch (err) {
     console.error('cron cleanup error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /cron/evaluate-alarms — evalúa alarmas de cruce y envía avisos predictivos.
+// Llamar cada ~5 min (Railway cron o cron-job.org).
+router.post('/evaluate-alarms', async (req: Request, res: Response) => {
+  if (!requireCronSecret(req, res)) return;
+  try {
+    const result = await evaluateAlarms();
+    return res.json(result);
+  } catch (err) {
+    console.error('cron evaluate-alarms error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

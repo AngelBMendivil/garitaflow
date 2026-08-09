@@ -11,11 +11,13 @@ import {
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList, MainTabParamList, UserBadges } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
-import { crossingsApi, gamificationApi } from '../../lib/api';
+import { crossingsApi, gamificationApi, profileApi } from '../../lib/api';
 import Logo from '../../components/Logo';
+import VehicleIcon, { VEHICLES, VEHICLE_COLORS, defaultColorFor } from '../../components/VehicleIcon';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Profile'>,
@@ -25,10 +27,38 @@ type Props = { navigation: Nav };
 
 const BADGES = ['🏅', '⭐', '🚀', '🌊', '🔥', '💎'];
 
+const AVATARS = [
+  '😎', '🤠', '👩‍💻', '👨‍🍳', '🧑‍🎤', '👩‍🚀', '🦸', '🧙‍♂️', '🕵️', '👩‍⚕️', '👨‍🏫', '🧑‍🌾',
+  '🐺', '🦊', '🐸', '🤖', '👾', '🦄', '🌵', '🍕', '🚗', '🛸', '⚡', '🎸',
+  '🩰', '🐄', '🐶', '🥒', '🌭', '🐧', '🧀', '🦙', '🦫', '🦥',
+];
+const CITIES = [
+  { id: 'tijuana', label: 'Tijuana' },
+  { id: 'mexicali', label: 'Mexicali' },
+  { id: 'nogales', label: 'Nogales' },
+  { id: 'juarez', label: 'Cd. Juárez' },
+];
+const GARITAS_BY_CITY: Record<string, string[]> = {
+  tijuana: ['San Ysidro', 'Otay Mesa', 'PedWest', 'Puerta México', 'Tecate'],
+  mexicali: ['Mexicali — Garita 1', 'Mexicali — Garita 2'],
+  nogales: ['Nogales — Mariposa', 'Nogales — DeConcini'],
+  juarez: ['Cd. Juárez — Córdova', 'Cd. Juárez — Santa Fe'],
+};
+
 export default function ProfileScreen({ navigation }: Props) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser, deleteAccount } = useAuth();
+  const insets = useSafeAreaInsets();
   const [history, setHistory] = useState<any[]>([]);
   const [badges, setBadges] = useState<UserBadges | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const city = user?.selected_city || 'tijuana';
+  const garitas = GARITAS_BY_CITY[city] || [];
+
+  const savePref = async (data: any) => {
+    updateUser(data);
+    try { await profileApi.update(data); } catch { /* se mantiene local */ }
+  };
 
   useEffect(() => {
     crossingsApi.history(5).then(setHistory).catch(() => {});
@@ -45,6 +75,40 @@ export default function ProfileScreen({ navigation }: Props) {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Se borrarán tu cuenta, tu historial de cruces y tus preferencias de forma permanente. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            // Segunda confirmación para una acción irreversible.
+            Alert.alert('¿Confirmar?', 'Tu cuenta se eliminará ahora.', [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Sí, eliminar',
+                style: 'destructive',
+                onPress: async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteAccount();
+                    // Al limpiar la sesión, el navegador raíz vuelve al login.
+                  } catch (e: any) {
+                    setDeleting(false);
+                    Alert.alert('Error', e?.message || 'No se pudo eliminar la cuenta. Intenta más tarde.');
+                  }
+                },
+              },
+            ]);
+          },
+        },
+      ]
+    );
+  };
+
   const formatDuration = (seconds?: number) => {
     if (!seconds) return '—';
     const m = Math.floor(seconds / 60);
@@ -56,10 +120,10 @@ export default function ProfileScreen({ navigation }: Props) {
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <Logo size={28} showText />
-          <TouchableOpacity onPress={handleLogout}>
-            <Text style={styles.logoutText}>Salir</Text>
+        <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+          <Logo size={30} variant="light" />
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+            <Text style={styles.logoutText}>⎋  Salir</Text>
           </TouchableOpacity>
         </View>
 
@@ -102,6 +166,103 @@ export default function ProfileScreen({ navigation }: Props) {
           <View style={styles.statCell}>
             <Text style={styles.statValue}>{user?.level || 1}</Text>
             <Text style={styles.statLabel}>Nivel</Text>
+          </View>
+        </View>
+
+        {/* Editar preferencias */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Editar preferencias</Text>
+
+          <Text style={styles.prefLabel}>Tu avatar</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+            {AVATARS.map((e) => (
+              <TouchableOpacity
+                key={e}
+                style={[styles.avCell, (user?.avatar_key || '😎') === e && styles.avCellOn]}
+                onPress={() => savePref({ avatar_key: e })}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 22 }}>{e}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.prefLabel}>Ciudad</Text>
+          <View style={styles.rowWrap}>
+            {CITIES.map((c) => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.pchip, city === c.id && styles.pchipOn]}
+                onPress={() => {
+                  const first = (GARITAS_BY_CITY[c.id] || [])[0];
+                  savePref({ selected_city: c.id, ...(first ? { selected_garita: first } : {}) });
+                }}
+              >
+                <Text style={[styles.pchipTxt, city === c.id && styles.pchipTxtOn]}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.prefLabel}>Garita frecuente</Text>
+          <View style={styles.rowWrap}>
+            {garitas.map((g) => (
+              <TouchableOpacity
+                key={g}
+                style={[styles.pchip, user?.selected_garita === g && styles.pchipOn]}
+                onPress={() => savePref({ selected_garita: g })}
+              >
+                <Text style={[styles.pchipTxt, user?.selected_garita === g && styles.pchipTxtOn]}>{g}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={styles.sentriRow}
+            onPress={() => savePref({ has_sentri: !user?.has_sentri })}
+            activeOpacity={0.8}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sentriTitle}>🅿️ Tengo SENTRI</Text>
+              <Text style={styles.sentriSub}>Con SENTRI apagado, nunca te recomendaremos SENTRI.</Text>
+            </View>
+            <View style={[styles.psw, user?.has_sentri && styles.pswOn]}>
+              <View style={[styles.pknob, user?.has_sentri && styles.pknobOn]} />
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.prefLabel}>Tu vehículo</Text>
+          <Text style={styles.prefHint}>Aparecerá en tu tarjeta al compartir un cruce.</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+            {VEHICLES.map((v) => {
+              const on = (user?.vehicle_key || 'sedan') === v.key;
+              const shownColor = on ? (user?.vehicle_color || v.defaultColor) : v.defaultColor;
+              return (
+                <TouchableOpacity
+                  key={v.key}
+                  style={[styles.vehCell, on && styles.vehCellOn]}
+                  onPress={() => savePref({ vehicle_key: v.key, vehicle_color: user?.vehicle_color || defaultColorFor(v.key) })}
+                  activeOpacity={0.75}
+                >
+                  <VehicleIcon vehicleKey={v.key} color={shownColor} size={58} />
+                  <Text style={[styles.vehTxt, on && styles.vehTxtOn]}>{v.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={styles.prefLabel}>Color del vehículo</Text>
+          <View style={styles.rowWrap}>
+            {VEHICLE_COLORS.map((c) => {
+              const on = (user?.vehicle_color || defaultColorFor(user?.vehicle_key || 'sedan')) === c.hex;
+              return (
+                <TouchableOpacity
+                  key={c.key}
+                  style={[styles.colorDot, { backgroundColor: c.hex }, on && styles.colorDotOn]}
+                  onPress={() => savePref({ vehicle_key: user?.vehicle_key || 'sedan', vehicle_color: c.hex })}
+                  activeOpacity={0.8}
+                />
+              );
+            })}
           </View>
         </View>
 
@@ -173,15 +334,22 @@ export default function ProfileScreen({ navigation }: Props) {
           )}
         </View>
 
-        {/* Settings */}
+        {/* Cuenta */}
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cuenta</Text>
           <TouchableOpacity
-            style={styles.settingsRow}
-            onPress={() => navigation.navigate('AlertSettings')}
+            style={styles.deleteBtn}
+            onPress={handleDeleteAccount}
+            disabled={deleting}
+            activeOpacity={0.8}
           >
-            <Text style={styles.settingsLabel}>🔔  Configurar alertas</Text>
-            <Text style={styles.settingsArrow}>›</Text>
+            <Text style={styles.deleteText}>
+              {deleting ? 'Eliminando…' : '🗑️  Eliminar mi cuenta'}
+            </Text>
           </TouchableOpacity>
+          <Text style={styles.deleteHint}>
+            Borra permanentemente tu cuenta y todos tus datos.
+          </Text>
         </View>
 
         <View style={{ height: 32 }} />
@@ -200,7 +368,15 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
-  logoutText: { color: Colors.red, fontSize: 14, fontWeight: '600' },
+  logoutBtn: {
+    backgroundColor: '#FDECEC',
+    borderColor: '#F3C0C0',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  logoutText: { color: Colors.red, fontSize: 13, fontWeight: '800' },
   profileCard: {
     backgroundColor: Colors.navyGarita,
     margin: 20,
@@ -332,4 +508,54 @@ const styles = StyleSheet.create({
   },
   settingsLabel: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   settingsArrow: { fontSize: 20, color: Colors.textMuted },
+  prefLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginTop: 14, marginBottom: 8 },
+  prefHint: { fontSize: 11, color: Colors.textMuted, marginTop: -4, marginBottom: 8 },
+  vehCell: {
+    width: 92, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.white,
+    alignItems: 'center', justifyContent: 'center', marginRight: 8, gap: 4,
+    borderWidth: 2, borderColor: Colors.cardBorder,
+  },
+  vehCellOn: { borderColor: Colors.green, backgroundColor: '#E8F5EF' },
+  vehTxt: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textAlign: 'center' },
+  vehTxtOn: { color: Colors.green },
+  colorDot: {
+    width: 34, height: 34, borderRadius: 17,
+    borderWidth: 2, borderColor: 'transparent',
+  },
+  colorDotOn: { borderColor: Colors.navyGarita },
+  avCell: {
+    width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.white,
+    alignItems: 'center', justifyContent: 'center', marginRight: 8,
+    borderWidth: 2, borderColor: Colors.cardBorder,
+  },
+  avCellOn: { borderColor: Colors.green, backgroundColor: '#E8F5EF' },
+  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pchip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.cardBorder,
+  },
+  pchipOn: { backgroundColor: '#E8F5EF', borderColor: Colors.green },
+  pchipTxt: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  pchipTxtOn: { color: Colors.green, fontWeight: '700' },
+  sentriRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.white, borderRadius: 14, padding: 14, marginTop: 14,
+    borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  sentriTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+  sentriSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
+  psw: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#D1D5DB', padding: 3, justifyContent: 'center' },
+  pswOn: { backgroundColor: Colors.green },
+  pknob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+  pknobOn: { alignSelf: 'flex-end' },
+  deleteBtn: {
+    backgroundColor: '#FDECEC',
+    borderColor: '#F3C0C0',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteText: { color: Colors.red, fontSize: 15, fontWeight: '800' },
+  deleteHint: { fontSize: 12, color: Colors.textMuted, textAlign: 'center', marginTop: 8 },
 });
