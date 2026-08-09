@@ -142,7 +142,6 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
   if (finished) {
     return (
       <View style={styles.safe}>
-        <Confetti />
         <ScrollView
           contentContainerStyle={[
             styles.finishWrap,
@@ -197,6 +196,8 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           </View>
         </ScrollView>
+        {/* Confeti encima de todo (no bloquea toques) */}
+        <Confetti />
       </View>
     );
   }

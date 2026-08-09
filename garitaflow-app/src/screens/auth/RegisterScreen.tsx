@@ -10,12 +10,14 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
-import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { isGoogleConfigured } from '../../hooks/useGoogleAuth';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 import Logo from '../../components/Logo';
 
 type Props = {
@@ -24,7 +26,7 @@ type Props = {
 
 export default function RegisterScreen({ navigation }: Props) {
   const { register } = useAuth();
-  const { signIn: googleSignIn, loading: googleLoading, disabled: googleDisabled } = useGoogleAuth();
+  const googleReady = isGoogleConfigured();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -123,18 +125,24 @@ export default function RegisterScreen({ navigation }: Props) {
             <View style={styles.line} />
           </View>
 
-          <TouchableOpacity
-            style={[styles.googleBtn, (googleLoading || googleDisabled) && styles.btnDisabled]}
-            activeOpacity={0.85}
-            onPress={googleSignIn}
-            disabled={googleLoading || googleDisabled}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color={Colors.textPrimary} />
-            ) : (
+          {googleReady ? (
+            <GoogleSignInButton
+              label="🇬 Registrarse con Google"
+              style={styles.googleBtn}
+              textStyle={styles.googleText}
+              disabledStyle={styles.btnDisabled}
+            />
+          ) : (
+            <TouchableOpacity
+              style={styles.googleBtn}
+              activeOpacity={0.85}
+              onPress={() =>
+                Alert.alert('Google casi listo', 'El registro con Google se habilitará muy pronto. Por ahora usa tu correo.')
+              }
+            >
               <Text style={styles.googleText}>🇬 Registrarse con Google</Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             onPress={() => navigation.navigate('Login')}

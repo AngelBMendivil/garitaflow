@@ -51,6 +51,7 @@ export default function PersonalizationScreen({ navigation }: Props) {
   const [selectedCity, setSelectedCity] = useState<string>('tijuana');
   const [selectedGarita, setSelectedGarita] = useState<string>('San Ysidro');
   const [selectedAvatar, setSelectedAvatar] = useState<string>('😎');
+  const [hasSentri, setHasSentri] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
   const cityLabel = CITIES.find((c) => c.id === selectedCity)?.label ?? '';
@@ -70,8 +71,9 @@ export default function PersonalizationScreen({ navigation }: Props) {
         selected_city: selectedCity,
         selected_garita: selectedGarita,
         avatar_key: selectedAvatar,
+        has_sentri: hasSentri,
       });
-      updateUser({ selected_city: selectedCity, selected_garita: selectedGarita, avatar_key: selectedAvatar });
+      updateUser({ selected_city: selectedCity, selected_garita: selectedGarita, avatar_key: selectedAvatar, has_sentri: hasSentri });
       navigation.navigate('NotificationPermission');
     } catch {
       navigation.navigate('NotificationPermission');
@@ -145,6 +147,28 @@ export default function PersonalizationScreen({ navigation }: Props) {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* SENTRI */}
+        <Text style={styles.sectionTitle}>¿Tienes SENTRI?</Text>
+        <View style={styles.sentriRow}>
+          <TouchableOpacity
+            style={[styles.sentriPill, hasSentri && styles.sentriPillOn]}
+            onPress={() => setHasSentri(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.sentriPillTxt, hasSentri && styles.sentriPillTxtOn]}>Sí, tengo SENTRI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sentriPill, !hasSentri && styles.sentriPillOn]}
+            onPress={() => setHasSentri(false)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.sentriPillTxt, !hasSentri && styles.sentriPillTxtOn]}>No</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.autoNote}>
+          Si no tienes SENTRI, no te sugeriremos ese carril. Podrás cambiarlo en tu perfil.
+        </Text>
 
         <Text style={styles.autoNote}>
           📍 También detectamos tu garita automáticamente por ubicación.
@@ -283,6 +307,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     lineHeight: 18,
   },
+  sentriRow: { flexDirection: 'row', gap: 10 },
+  sentriPill: {
+    flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+    backgroundColor: Colors.background, borderWidth: 2, borderColor: 'transparent',
+  },
+  sentriPillOn: { borderColor: Colors.green, backgroundColor: '#E8F5EF' },
+  sentriPillTxt: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+  sentriPillTxtOn: { color: Colors.green },
   btn: {
     backgroundColor: Colors.green,
     borderRadius: 14,

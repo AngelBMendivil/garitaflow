@@ -110,7 +110,9 @@ function factorFor(sens: string): number {
 async function sendExpoPush(tokens: string[], title: string, body: string): Promise<void> {
   const msgs = tokens
     .filter((t) => t && t.startsWith('ExponentPushToken'))
-    .map((to) => ({ to, title, body, sound: 'default', priority: 'high' }));
+    // channelId 'default' = canal de ALTA prioridad con sonido (creado en la app).
+    // Sin él, Android puede entregar la push en silencio.
+    .map((to) => ({ to, title, body, sound: 'default', priority: 'high', channelId: 'default' }));
   if (!msgs.length) return;
   try {
     await fetch('https://exp.host/--/api/v2/push/send', {
@@ -192,23 +194,19 @@ export async function evaluateAlarms(): Promise<EvalResult> {
       );
       const tokens = tks.map((t) => t.token);
       const hhmm = rc.target_time;
-      const filaTxt = cur != null ? `La fila va en ~${cur} min ahora.` : 'Aún sin lectura de fila.';
 
-      let title: string;
-      let body: string;
-      if (scenario === 'saturation') {
-        title = '⚠️ Sobresaturación en tu cruce';
-        body = `Recordatorio de tu cruce de las ${hhmm} en ${rc.port_name}: hay muchísima fila de lo habitual. ${filaTxt} Considera salir antes.`;
-      } else if (scenario === 'over') {
-        title = '⚠️ Hoy hay más fila de lo normal';
-        body = `Recordatorio de tu cruce de las ${hhmm} en ${rc.port_name}: hay más fila de lo habitual. ${filaTxt} Considera salir antes.`;
-      } else if (scenario === 'clear') {
-        title = '✅ La fila se ve despejada';
-        body = `Recordatorio de tu cruce de las ${hhmm} en ${rc.port_name}: la fila está más corta de lo normal. ${filaTxt} Buen momento para salir.`;
-      } else {
-        title = '⏰ Recordatorio de tu cruce';
-        body = `Se acerca tu cruce de las ${hhmm} en ${rc.port_name}. ${filaTxt}`;
-      }
+      // Alarma tipo DESPERTADOR: el título siempre es el recordatorio del cruce,
+      // y el cuerpo dice cómo está la fila EN ESE MOMENTO. Nunca se enmarca como
+      // "alerta por anomalía"; si acaso, una nota suave entre paréntesis.
+      const filaTxt =
+        cur != null ? `La fila va en ~${cur} min ahora.` : 'Aún sin lectura de la fila en este momento.';
+      let nota = '';
+      if (scenario === 'saturation') nota = ' (bastante más que de costumbre)';
+      else if (scenario === 'over') nota = ' (algo más que de costumbre)';
+      else if (scenario === 'clear') nota = ' (más despejada de lo normal)';
+
+      const title = `⏰ Tu cruce de las ${hhmm} · ${rc.port_name}`;
+      const body = `${filaTxt}${nota}`;
 
       await sendExpoPush(tokens, title, body);
       didSend = tokens.length > 0;

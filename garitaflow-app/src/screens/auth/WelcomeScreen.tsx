@@ -34,7 +34,7 @@ export default function WelcomeScreen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoContainer}>
-            <Logo size={64} showText />
+            <Logo size={52} showText />
           </View>
 
           <View style={styles.hero}>
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     justifyContent: 'space-between',
   },
-  logoContainer: { alignSelf: 'flex-start' },
+  logoContainer: { alignSelf: 'stretch' },
   hero: { gap: 12, marginTop: 32 },
   headline: {
     fontSize: 36,

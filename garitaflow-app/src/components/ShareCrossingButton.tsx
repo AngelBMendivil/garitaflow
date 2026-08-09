@@ -7,6 +7,22 @@ import { useAuth } from '../context/AuthContext';
 
 export type ShareMoment = 'start' | 'incident' | 'finish';
 
+// Confeti estático "horneado" en la tarjeta (se captura como PNG).
+const CARD_CONFETTI: { left: number; top: number; color: string; rot: string; w: number; h: number }[] = [
+  { left: 26, top: 90, color: '#2563EB', rot: '18deg', w: 8, h: 14 },
+  { left: 70, top: 60, color: '#16A34A', rot: '-22deg', w: 7, h: 12 },
+  { left: 120, top: 100, color: '#F59E0B', rot: '35deg', w: 9, h: 9 },
+  { left: 170, top: 55, color: '#E5484D', rot: '-10deg', w: 8, h: 13 },
+  { left: 210, top: 96, color: '#8B5CF6', rot: '25deg', w: 7, h: 12 },
+  { left: 258, top: 66, color: '#06B6D4', rot: '-30deg', w: 9, h: 9 },
+  { left: 300, top: 100, color: '#EAB308', rot: '15deg', w: 7, h: 13 },
+  { left: 48, top: 150, color: '#E5484D', rot: '40deg', w: 7, h: 11 },
+  { left: 150, top: 150, color: '#16A34A', rot: '-18deg', w: 8, h: 8 },
+  { left: 285, top: 150, color: '#2563EB', rot: '28deg', w: 7, h: 12 },
+  { left: 96, top: 128, color: '#8B5CF6', rot: '-35deg', w: 6, h: 10 },
+  { left: 232, top: 130, color: '#F59E0B', rot: '12deg', w: 8, h: 8 },
+];
+
 interface Props {
   moment: ShareMoment;
   portName?: string;
@@ -27,7 +43,7 @@ function content(p: Props) {
       where,
       big: p.minutes != null ? `${p.minutes} min` : '—',
       sub: 'Tiempo real de mi cruce',
-      text: `🎉 Crucé por ${where} en ${p.minutes ?? '—'} min con GaritaFlow. Cruza con inteligencia: garitaflow.com`,
+      text: `🎉 Crucé por ${where} en ${p.minutes ?? '—'} min con GaritaFlow. Cruza con inteligencia: https://garitaflow.com`,
     };
   }
   if (p.moment === 'incident') {
@@ -37,7 +53,7 @@ function content(p: Props) {
       where,
       big: p.incidentLabel || 'Incidente',
       sub: 'Aviso a la comunidad',
-      text: `⚠️ Reporté "${p.incidentLabel || 'incidente'}" en ${where} con GaritaFlow. garitaflow.com`,
+      text: `⚠️ Reporté "${p.incidentLabel || 'incidente'}" en ${where} con GaritaFlow. https://garitaflow.com`,
     };
   }
   return {
@@ -46,7 +62,7 @@ function content(p: Props) {
     where,
     big: 'En la línea',
     sub: 'Sígueme en tiempo real',
-    text: `🚗 Entré a la fila en ${where}. Sígueme en vivo con GaritaFlow: garitaflow.com`,
+    text: `🚗 Entré a la fila en ${where}. Sígueme en vivo con GaritaFlow: https://garitaflow.com`,
   };
 }
 
@@ -89,6 +105,26 @@ export default function ShareCrossingButton(props: Props) {
       {/* Tarjeta branded oculta fuera de pantalla, solo para capturar */}
       <View collapsable={false} style={styles.offscreen} pointerEvents="none">
         <View collapsable={false} ref={cardRef} style={styles.card}>
+          {/* Confeti festivo horneado en la tarjeta */}
+          {props.moment !== 'incident' && (
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              {CARD_CONFETTI.map((p, i) => (
+                <View
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    left: p.left,
+                    top: p.top,
+                    width: p.w,
+                    height: p.h,
+                    borderRadius: 2,
+                    backgroundColor: p.color,
+                    transform: [{ rotate: p.rot }],
+                  }}
+                />
+              ))}
+            </View>
+          )}
           <Logo variant="dark" size={44} />
           {props.moment === 'incident' ? (
             <Text style={styles.emoji}>{c.emoji}</Text>

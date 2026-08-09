@@ -24,8 +24,16 @@ export default function AnimatedSplash() {
 
   return (
     <View style={styles.bg}>
-      <Animated.View style={{ opacity, transform: [{ scale: Animated.multiply(scale, pulse) }] }}>
-        <Logo variant="light" size={54} />
+      <Animated.View
+        style={{
+          opacity,
+          transform: [{ scale: Animated.multiply(scale, pulse) }],
+          width: '100%',
+          alignItems: 'center',
+          paddingHorizontal: 24,
+        }}
+      >
+        <Logo variant="light" size={48} />
       </Animated.View>
     </View>
   );

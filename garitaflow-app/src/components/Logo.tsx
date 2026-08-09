@@ -38,7 +38,7 @@ export default function Logo({ size = 44, variant = 'dark', showText = true }: L
       {showText && (
         <Image
           source={wm}
-          style={{ height: wmHeight, width: wmHeight * wmAR, marginLeft: size * 0.26 }}
+          style={{ height: wmHeight, width: wmHeight * wmAR, marginLeft: size * 0.26, flexShrink: 1 }}
           resizeMode="contain"
         />
       )}
@@ -47,5 +47,7 @@ export default function Logo({ size = 44, variant = 'dark', showText = true }: L
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center' },
+  // maxWidth 100% + flexShrink en el wordmark: si el contenedor es angosto,
+  // el logo se encoge en vez de cortarse (pasaba en el splash).
+  row: { flexDirection: 'row', alignItems: 'center', maxWidth: '100%' },
 });

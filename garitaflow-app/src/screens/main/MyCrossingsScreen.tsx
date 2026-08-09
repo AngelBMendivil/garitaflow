@@ -43,7 +43,7 @@ type Port = { id: number | string; name: string; lanes?: { mode: string; lane_ty
 export default function MyCrossingsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { requestPermission, registerForPush } = useNotifications();
+  const { requestPermission, registerForPush, showLocal } = useNotifications();
   const city = user?.selected_city || 'tijuana';
 
   const [items, setItems] = useState<any[]>([]);
@@ -53,12 +53,40 @@ export default function MyCrossingsScreen() {
   // formulario
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [fPort, setFPort] = useState<string>('');
   const [fLane, setFLane] = useState<string>('GENERAL');
   const [fTime, setFTime] = useState<string>('05:00');
   const [fDays, setFDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [fSens, setFSens] = useState<'low' | 'medium' | 'high'>('medium');
   const [fLead, setFLead] = useState<number>(45);
+
+  const openCreate = () => {
+    setEditingId(null);
+    setFPort(ports[0] ? String(ports[0].id) : '');
+    setFLane('GENERAL');
+    setFTime('05:00');
+    setFDays([1, 2, 3, 4, 5]);
+    setFSens('medium');
+    setFLead(45);
+    setOpen(true);
+  };
+
+  const openEdit = (it: any) => {
+    setEditingId(it.id);
+    setFPort(String(it.port_id));
+    setFLane(it.lane_type || 'GENERAL');
+    setFTime(it.target_time || '05:00');
+    setFDays(Array.isArray(it.days_of_week) ? it.days_of_week : [1, 2, 3, 4, 5]);
+    setFSens(it.sensitivity || 'medium');
+    setFLead(it.lead_minutes || 45);
+    setOpen(true);
+  };
+
+  const closeSheet = () => {
+    setOpen(false);
+    setEditingId(null);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -100,13 +128,13 @@ export default function MyCrossingsScreen() {
     setSaving(true);
     try {
       // La alarma necesita permiso de notificaciones + token registrado,
-      // si no, no hay a dónde mandar el aviso. Se pide al crear la alarma.
+      // si no, no hay a dónde mandar el aviso. Se pide al crear/editar.
       const granted = await requestPermission();
       if (granted) {
         await registerForPush();
       }
 
-      await recurringApi.create({
+      const payload = {
         port_id: fPort,
         lane_type: fLane,
         mode: 'VEHICULAR',
@@ -114,13 +142,28 @@ export default function MyCrossingsScreen() {
         target_time: fTime,
         lead_minutes: fLead,
         sensitivity: fSens,
-      });
-      setOpen(false);
+      };
+
+      if (editingId) {
+        await recurringApi.update(editingId, payload);
+      } else {
+        await recurringApi.create(payload);
+      }
+
+      const wasEditing = !!editingId;
+      closeSheet();
       await load();
 
-      if (!granted) {
+      if (granted) {
+        // Confirmación inmediata para que el usuario compruebe que las
+        // notificaciones (y el sonido) sí entran en su teléfono.
+        await showLocal(
+          wasEditing ? '⏰ Alarma actualizada' : '⏰ Alarma configurada',
+          `Te avisaré con el estado de la fila para tu cruce de las ${fTime}.`
+        );
+      } else {
         Alert.alert(
-          'Alarma guardada',
+          wasEditing ? 'Alarma actualizada' : 'Alarma guardada',
           'Para recibir el aviso activa las notificaciones de GaritaFlow en los ajustes de tu teléfono.'
         );
       }
@@ -182,9 +225,14 @@ export default function MyCrossingsScreen() {
                 <Text style={styles.cardMeta}>
                   {daysText(it.days_of_week || [])} · aviso {it.lead_minutes} min antes · sensib. {SENS_LABEL[it.sensitivity]}
                 </Text>
-                <TouchableOpacity onPress={() => remove(it)}>
-                  <Text style={styles.deleteLink}>Eliminar</Text>
-                </TouchableOpacity>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity onPress={() => openEdit(it)}>
+                    <Text style={styles.editLink}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => remove(it)}>
+                    <Text style={styles.deleteLink}>Eliminar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               <TouchableOpacity onPress={() => toggleActive(it)} activeOpacity={0.8}>
                 <View style={[styles.switch, it.active && styles.switchOn]}>
@@ -195,7 +243,7 @@ export default function MyCrossingsScreen() {
           ))
         )}
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setOpen(true)} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.addBtn} onPress={openCreate} activeOpacity={0.85}>
           <Text style={styles.addBtnText}>+ Nuevo cruce recurrente</Text>
         </TouchableOpacity>
 
@@ -203,11 +251,13 @@ export default function MyCrossingsScreen() {
       </ScrollView>
 
       {/* Modal crear alarma */}
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType="slide" onRequestClose={closeSheet}>
+        <Pressable style={styles.backdrop} onPress={closeSheet}>
           <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]} onPress={() => {}}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.sheetTitle}>Nuevo cruce recurrente</Text>
+              <Text style={styles.sheetTitle}>
+                {editingId ? 'Editar cruce recurrente' : 'Nuevo cruce recurrente'}
+              </Text>
 
               <Text style={styles.label}>Garita</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
@@ -281,9 +331,13 @@ export default function MyCrossingsScreen() {
               </View>
 
               <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveTxt}>Guardar alarma</Text>}
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveTxt}>{editingId ? 'Guardar cambios' : 'Guardar alarma'}</Text>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setOpen(false)}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={closeSheet}>
                 <Text style={styles.cancelTxt}>Cancelar</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -311,7 +365,9 @@ const styles = StyleSheet.create({
   cardTime: { color: Colors.darkText, fontSize: 22, fontWeight: '800' },
   cardLine: { color: Colors.darkTextSecondary, fontSize: 13, marginTop: 2, fontWeight: '600' },
   cardMeta: { color: Colors.darkTextMuted, fontSize: 12, marginTop: 3 },
-  deleteLink: { color: '#FF6B7D', fontSize: 12, fontWeight: '700', marginTop: 8 },
+  cardActions: { flexDirection: 'row', gap: 18, marginTop: 8 },
+  editLink: { color: Colors.blueFlow, fontSize: 12, fontWeight: '700' },
+  deleteLink: { color: '#FF6B7D', fontSize: 12, fontWeight: '700' },
   addBtn: {
     backgroundColor: Colors.blueFlow, borderRadius: 14, paddingVertical: 15,
     alignItems: 'center', marginHorizontal: 20, marginTop: 18,

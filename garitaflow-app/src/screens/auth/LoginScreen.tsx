@@ -16,7 +16,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../lib/types';
 import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
-import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { isGoogleConfigured } from '../../hooks/useGoogleAuth';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 import Logo from '../../components/Logo';
 
 type Props = {
@@ -25,7 +26,7 @@ type Props = {
 
 export default function LoginScreen({ navigation }: Props) {
   const { login } = useAuth();
-  const { signIn: googleSignIn, loading: googleLoading, disabled: googleDisabled } = useGoogleAuth();
+  const googleReady = isGoogleConfigured();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -103,19 +104,26 @@ export default function LoginScreen({ navigation }: Props) {
             <View style={styles.line} />
           </View>
 
-          {/* Google Sign-In */}
-          <TouchableOpacity
-            style={[styles.googleBtn, (googleLoading || googleDisabled) && styles.btnDisabled]}
-            activeOpacity={0.85}
-            onPress={googleSignIn}
-            disabled={googleLoading || googleDisabled}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color={Colors.textPrimary} />
-            ) : (
+          {/* Google Sign-In: el botón real solo se monta si ya hay credenciales;
+              si no, un botón inerte que avisa (evita el crash al no configurar OAuth). */}
+          {googleReady ? (
+            <GoogleSignInButton
+              label="🇬 Continuar con Google"
+              style={styles.googleBtn}
+              textStyle={styles.googleText}
+              disabledStyle={styles.btnDisabled}
+            />
+          ) : (
+            <TouchableOpacity
+              style={styles.googleBtn}
+              activeOpacity={0.85}
+              onPress={() =>
+                Alert.alert('Google casi listo', 'El inicio con Google se habilitará muy pronto. Por ahora usa tu correo.')
+              }
+            >
               <Text style={styles.googleText}>🇬 Continuar con Google</Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             onPress={() => navigation.navigate('Register')}

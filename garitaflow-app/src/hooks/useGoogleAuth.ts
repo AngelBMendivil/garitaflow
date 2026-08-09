@@ -15,6 +15,15 @@ type GoogleCfg = {
   webClientId?: string;
 };
 
+// ¿Ya hay credenciales OAuth de Google? Función pura (sin hooks): sirve para
+// decidir si montamos el botón real de Google o no. MIENTRAS esté en falso NO
+// se debe montar useGoogleAuth (inicializar la sesión OAuth sin clientId truena
+// la app). Por eso el botón real vive en un componente aparte.
+export function isGoogleConfigured(): boolean {
+  const cfg: GoogleCfg = ((Constants.expoConfig?.extra as any)?.googleAuth as GoogleCfg) || {};
+  return !!(cfg.androidClientId || cfg.iosClientId || cfg.webClientId || cfg.expoClientId);
+}
+
 /**
  * Hook de inicio de sesión con Google. Comparte la lógica entre Login y
  * Registro. Lee los Client IDs desde app.json → extra.googleAuth.
