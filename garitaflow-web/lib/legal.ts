@@ -36,6 +36,19 @@ export const LEGAL = {
   VIGENCIA: '16 de agosto de 2026',
 } as const
 
+/**
+ * Proveedores externos VERIFICADOS en el código (16-ago-2026). No agregar
+ * ninguno que no esté realmente en uso.
+ *
+ * Comprobado que NO existen en la app: SDK de publicidad, analítica móvil,
+ * crash reporting (sin Firebase, Sentry, AdMob, Amplitude ni equivalentes).
+ */
+export const PROVEEDORES = [
+  ['Railway', 'Aloja los servidores y la base de datos.'],
+  ['Expo', 'Entrega las notificaciones al dispositivo (token de notificaciones).'],
+  ['Google', 'Inicio de sesión con Google, si eliges esa opción. En el sitio web, además, analítica y publicidad.'],
+] as const
+
 /** Categorías de datos que la app realmente recolecta, según el backend. */
 export const DATOS_RECOLECTADOS = [
   {

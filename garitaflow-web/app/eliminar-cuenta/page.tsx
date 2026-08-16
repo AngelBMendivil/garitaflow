@@ -4,9 +4,9 @@ import LegalLayout, { Seccion } from '@/components/LegalLayout'
 import { LEGAL } from '@/lib/legal'
 
 export const metadata: Metadata = {
-  title: 'Eliminar mi cuenta — GaritaFlow',
+  title: 'Eliminar cuenta | GaritaFlow',
   description:
-    'Cómo eliminar tu cuenta de GaritaFlow y todos tus datos, desde la aplicación o solicitándolo por correo.',
+    'Consulta cómo eliminar tu cuenta y datos de GaritaFlow.',
 }
 
 const ASUNTO = encodeURIComponent('Solicitud de eliminación de cuenta — GaritaFlow')
@@ -18,7 +18,7 @@ const CUERPO = encodeURIComponent(
 
 export default function EliminarCuenta() {
   return (
-    <LegalLayout titulo="Eliminar mi cuenta">
+    <LegalLayout titulo="Eliminar tu cuenta de GaritaFlow">
       <Seccion titulo="Desde la aplicación, al instante">
         <p>
           Es la vía más rápida y no requiere esperar a que alguien la procese. La eliminación es

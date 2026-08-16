@@ -4,14 +4,14 @@ import LegalLayout, { Seccion } from '@/components/LegalLayout'
 import { LEGAL } from '@/lib/legal'
 
 export const metadata: Metadata = {
-  title: 'Términos y condiciones — GaritaFlow',
+  title: 'Términos de Uso | GaritaFlow',
   description:
-    'Condiciones de uso de la aplicación y el sitio GaritaFlow: cuentas, reportes de la comunidad, límites de responsabilidad.',
+    'Consulta las reglas y condiciones para utilizar GaritaFlow.',
 }
 
 export default function Terminos() {
   return (
-    <LegalLayout titulo="Términos y condiciones">
+    <LegalLayout titulo="Términos de Uso de GaritaFlow">
       <Seccion titulo="Aceptación">
         <p>
           Al descargar, instalar o usar {LEGAL.APP} aceptas estos términos. Si no estás de
@@ -59,11 +59,30 @@ export default function Terminos() {
         </p>
       </Seccion>
 
+      <Seccion titulo="Decisiones migratorias">
+        <p>
+          GaritaFlow no determina ni garantiza elegibilidad de ingreso a Estados Unidos o
+          México, documentación migratoria, requisitos aduanales, SENTRI, Ready Lane, Global
+          Entry ni decisiones tomadas por autoridades fronterizas.
+        </p>
+      </Seccion>
+
+      <Seccion titulo="Seguridad al conducir">
+        <div className="rounded-lg border-l-4 border-wait-critical bg-red-50 p-4">
+          <p className="font-semibold text-brand-navy">No uses GaritaFlow mientras conduces</p>
+          <p className="mt-1 text-sm text-slate-700">
+            No utilices GaritaFlow ni envíes reportes mientras conduces. Utiliza la aplicación
+            únicamente cuando el vehículo se encuentre detenido de forma segura, o por medio de
+            un pasajero.
+          </p>
+        </div>
+      </Seccion>
+
       <Seccion titulo="Tu cuenta">
         <ul className="list-disc space-y-2 pl-5">
           <li>Debes proporcionar información veraz al registrarte.</li>
           <li>Eres responsable de mantener segura tu contraseña y de la actividad en tu cuenta.</li>
-          <li>Debes tener al menos 13 años para crear una cuenta.</li>
+          <li>Debes tener al menos 18 años para crear una cuenta.</li>
           <li>
             Puedes eliminar tu cuenta cuando quieras, desde la aplicación o desde{' '}
             <Link
@@ -81,15 +100,19 @@ export default function Terminos() {
         <p>Al reportar el estado de una fila te comprometes a que sea información real.</p>
         <p>Queda prohibido:</p>
         <ul className="list-disc space-y-2 pl-5">
-          <li>Enviar reportes falsos o manipular deliberadamente los tiempos.</li>
-          <li>
-            Automatizar el envío de reportes, usar múltiples cuentas o falsear tu ubicación.
-          </li>
+          <li>Crear reportes falsos o manipular deliberadamente los tiempos.</li>
+          <li>Enviar spam.</li>
+          <li>Automatizar el envío de reportes sin autorización.</li>
+          <li>Falsificar tu ubicación.</li>
+          <li>Utilizar múltiples cuentas para manipular la información.</li>
+          <li>Realizar scraping abusivo.</li>
+          <li>Intentar vulnerar el sistema o interferir con el funcionamiento de GaritaFlow.</li>
           <li>
             Reportar la presencia, ubicación o actividad de agentes, autoridades, unidades
-            caninas o puntos de inspección.
+            caninas, operativos, inspecciones o puntos de revisión, así como cualquier
+            información destinada a facilitar la evasión de controles fronterizos.
           </li>
-          <li>Usar el servicio para cualquier fin ilícito.</li>
+          <li>Utilizar la plataforma con fines ilegales.</li>
         </ul>
         <p>
           Esa tercera restricción es deliberada y no es negociable: GaritaFlow existe para
@@ -122,14 +145,15 @@ export default function Terminos() {
 
       <Seccion titulo="Límite de responsabilidad">
         <p>
-          En la máxima medida permitida por la ley aplicable, {LEGAL.RESPONSABLE} no será
-          responsable por daños indirectos, incidentales o consecuenciales derivados del uso de
-          GaritaFlow, incluyendo pérdidas por tiempo de espera, oportunidades, citas o vuelos
-          perdidos, ni por decisiones tomadas con base en la información mostrada.
+          GaritaFlow es una herramienta informativa. En la máxima medida permitida por la
+          legislación aplicable, GaritaFlow y su operador no serán responsables por daños
+          indirectos derivados exclusivamente de decisiones tomadas con base en las estimaciones
+          mostradas por el servicio, incluyendo retrasos, oportunidades, citas o vuelos
+          perdidos.
         </p>
         <p>
-          Nada en estos términos limita la responsabilidad que no pueda excluirse conforme a la
-          legislación mexicana aplicable en materia de protección al consumidor.
+          Nada de estos términos limita derechos o responsabilidades que legalmente no puedan
+          excluirse.
         </p>
       </Seccion>
 
@@ -143,15 +167,11 @@ export default function Terminos() {
 
       <Seccion titulo="Ley aplicable">
         <p>
-          El servicio se opera desde San Diego, California, Estados Unidos. Estos términos se
-          rigen por las leyes del Estado de California y de los Estados Unidos de América, sin
-          atender a sus normas de conflicto de leyes.
+          El servicio se opera desde San Diego, California, Estados Unidos.
         </p>
         <p>
-          Lo anterior <strong>no te priva</strong> de los derechos que la legislación de tu país
-          de residencia te otorgue de forma irrenunciable. Si resides en México, conservas las
-          protecciones que la ley mexicana en materia de consumo y protección de datos te
-          reconozca, y puedes acudir ante las autoridades competentes de tu localidad.
+          Conservas los derechos que te correspondan conforme a la legislación aplicable de tu
+          lugar de residencia, y puedes acudir ante las autoridades competentes de tu localidad.
         </p>
       </Seccion>
 

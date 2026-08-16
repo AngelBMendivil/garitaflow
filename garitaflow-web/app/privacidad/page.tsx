@@ -1,17 +1,17 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LegalLayout, { Seccion } from '@/components/LegalLayout'
-import { LEGAL, DATOS_RECOLECTADOS } from '@/lib/legal'
+import { LEGAL, DATOS_RECOLECTADOS, PROVEEDORES } from '@/lib/legal'
 
 export const metadata: Metadata = {
-  title: 'Aviso de privacidad — GaritaFlow',
+  title: 'Aviso de Privacidad | GaritaFlow',
   description:
-    'Qué datos recolecta GaritaFlow, para qué los usa, con quién los comparte y cómo ejercer tus derechos ARCO.',
+    'Conoce cómo GaritaFlow utiliza y protege la información de sus usuarios.',
 }
 
 export default function Privacidad() {
   return (
-    <LegalLayout titulo="Aviso de privacidad">
+    <LegalLayout titulo="Aviso de Privacidad de GaritaFlow">
       <Seccion titulo="Quién es responsable de tus datos">
         <p>
           {LEGAL.RESPONSABLE}, con domicilio en {LEGAL.DOMICILIO}, es responsable del
@@ -19,15 +19,12 @@ export default function Privacidad() {
           GaritaFlow y del sitio {LEGAL.SITIO}.
         </p>
         <p>
-          El servicio se opera desde Estados Unidos y sus usuarios se encuentran
-          principalmente en México y Estados Unidos. Por ello, este aviso se redacta
-          incorporando los principios de la Ley Federal de Protección de Datos Personales en
-          Posesión de los Particulares (LFPDPPP) de México, y reconocemos los derechos que la
-          legislación de California otorga a sus residentes.
+          GaritaFlow ayuda a consultar y estimar tiempos de espera en cruces fronterizos entre
+          México y Estados Unidos.
         </p>
         <p>
-          Si resides en México, te reconocemos los derechos ARCO descritos más adelante
-          independientemente de que el responsable esté domiciliado fuera del país.
+          Conservas los derechos que te correspondan conforme a la legislación aplicable de tu
+          lugar de residencia.
         </p>
       </Seccion>
 
@@ -75,33 +72,40 @@ export default function Privacidad() {
         </ul>
       </Seccion>
 
-      <Seccion titulo="Con quién compartimos datos">
-        <p>No vendemos tus datos personales. Los compartimos solo con quien es indispensable:</p>
+      <Seccion titulo="Publicidad y monetización">
+        <p>
+          GaritaFlow puede mostrar publicidad, contenido patrocinado o recomendaciones
+          comerciales. Hoy la publicidad existe únicamente en el sitio web; la aplicación móvil
+          no muestra anuncios.
+        </p>
+        <p>
+          <strong>No vendemos la ubicación precisa de nuestros usuarios</strong>, y la ubicación
+          que se usa para validar cruces y reportes no se utiliza para segmentación
+          publicitaria. La publicidad puede basarse en contexto general, como la sección
+          consultada, la garita o la ciudad seleccionada.
+        </p>
+        <p>
+          Si en el futuro incorporamos proveedores de publicidad o analítica que cambien lo
+          anterior, actualizaremos este aviso y, cuando corresponda, te lo informaremos y
+          recabaremos los consentimientos necesarios.
+        </p>
+      </Seccion>
+
+      <Seccion titulo="Proveedores tecnológicos">
+        <p>
+          No vendemos tus datos personales. Utilizamos únicamente los proveedores necesarios
+          para operar el servicio:
+        </p>
         <ul className="list-disc space-y-2 pl-5">
-          <li>
-            <strong>Railway</strong> — aloja nuestros servidores y base de datos.
-          </li>
-          <li>
-            <strong>Expo</strong> — entrega las notificaciones a tu dispositivo.
-          </li>
-          <li>
-            <strong>Google</strong> — si eliges iniciar sesión con tu cuenta de Google, y a
-            través de Google Tag Manager y servicios de publicidad en nuestro sitio web.
-          </li>
+          {PROVEEDORES.map(([nombre, para]) => (
+            <li key={nombre}>
+              <strong>{nombre}</strong> — {para}
+            </li>
+          ))}
         </ul>
         <p>
-          Nuestro sitio web utiliza <strong>cookies de analítica y publicidad</strong> de
-          terceros. La aplicación móvil no muestra publicidad.
-        </p>
-        <p>
-          Nuestros servidores y los de estos proveedores se ubican en Estados Unidos. Si
-          resides en México, tus datos se transfieren y procesan fuera del país. Al usar el
-          servicio consientes esa transferencia, necesaria para poder prestarlo.
-        </p>
-        <p className="rounded-lg border border-surface-border bg-white p-4 text-sm">
-          <strong className="text-brand-navy">No vendemos tus datos personales</strong> ni los
-          compartimos para publicidad conductual entre sitios, en el sentido que dan a esos
-          términos las leyes de privacidad de California.
+          Nuestros servidores y los de estos proveedores se ubican en Estados Unidos, por lo que
+          tu información puede procesarse fuera de tu país de residencia.
         </p>
       </Seccion>
 
@@ -115,23 +119,30 @@ export default function Privacidad() {
       </Seccion>
 
       <Seccion titulo="Cuánto tiempo conservamos tu información">
+        <p>Conservamos cada tipo de información solo mientras es necesaria para su finalidad:</p>
         <ul className="list-disc space-y-2 pl-5">
-          <li>Reportes de la comunidad: 24 horas.</li>
-          <li>Registros de ubicación asociados a validación: 30 días.</li>
-          <li>Historial de notificaciones enviadas: 45 días.</li>
-          <li>Registros técnicos de errores: 90 días.</li>
           <li>
-            Cuenta e historial de cruces: mientras tu cuenta exista. Al eliminarla se borran.
+            <strong>Tu cuenta y tu historial personal:</strong> mientras tu cuenta exista. Al
+            eliminarla se borran.
+          </li>
+          <li>
+            <strong>Reportes de la comunidad, registros de validación de ubicación, historial
+            de notificaciones y registros técnicos:</strong> se depuran de forma periódica
+            mediante un proceso automatizado, conservándose únicamente el tiempo necesario para
+            la finalidad que los originó.
+          </li>
+          <li>
+            <strong>Estadísticas agregadas o anonimizadas:</strong> pueden conservarse cuando ya
+            no permitan identificarte razonablemente.
           </li>
         </ul>
       </Seccion>
 
-      <Seccion titulo="Tus derechos ARCO">
+      <Seccion titulo="Tus derechos sobre tu información">
         <p>
-          Tienes derecho a <strong>acceder</strong> a tus datos, <strong>rectificarlos</strong>{' '}
-          si son inexactos, <strong>cancelarlos</strong> cuando consideres que no son
-          necesarios, y <strong>oponerte</strong> a su tratamiento para fines específicos.
-          También puedes revocar tu consentimiento en cualquier momento.
+          Puedes solicitar el acceso, la corrección o la eliminación de tu información, oponerte
+          a determinados tratamientos o revocar tu consentimiento, conforme a la legislación
+          aplicable de tu lugar de residencia.
         </p>
         <p>
           Para ejercerlos, escribe a{' '}
@@ -141,8 +152,8 @@ export default function Privacidad() {
           >
             {LEGAL.CONTACTO_EMAIL}
           </a>{' '}
-          indicando tu nombre, el correo con el que te registraste y qué derecho deseas
-          ejercer. Responderemos en un plazo máximo de 20 días hábiles.
+          indicando tu nombre, el correo con el que te registraste y qué deseas solicitar. Las
+          solicitudes se atienden conforme a los plazos que establezca la legislación aplicable.
         </p>
         <p>
           Para eliminar tu cuenta puedes hacerlo directamente desde la aplicación, en Perfil →
@@ -152,30 +163,22 @@ export default function Privacidad() {
           </Link>
           , sin necesidad de instalarla.
         </p>
-        <p>
-          <strong>Si resides en California</strong>, además puedes solicitar el detalle de las
-          categorías de información que recabamos, pedir su eliminación y ejercer tu derecho a
-          no ser discriminado por ejercerlos. Se solicitan por el mismo correo.
-        </p>
-        <p>
-          Si consideras que tu derecho a la protección de datos fue vulnerado y resides en
-          México, puedes acudir al INAI.
-        </p>
       </Seccion>
 
-      <Seccion titulo="Menores de edad">
+      <Seccion titulo="Edad mínima">
         <p>
-          GaritaFlow no está dirigida a menores de 13 años y no recabamos datos de forma
-          consciente de personas de esa edad. Si detectas que un menor creó una cuenta,
-          escríbenos y la eliminaremos.
+          GaritaFlow no está dirigida a menores de edad. Debes tener al menos 18 años para
+          crear una cuenta. Si detectas que un menor creó una cuenta, escríbenos y la
+          eliminaremos.
         </p>
       </Seccion>
 
       <Seccion titulo="Seguridad">
         <p>
-          Las contraseñas se almacenan cifradas y nunca en texto plano. La comunicación entre la
-          aplicación y nuestros servidores viaja siempre por HTTPS. Aun así, ningún sistema es
-          infalible: si ocurriera una vulneración que afecte tus datos, te lo notificaremos.
+          GaritaFlow utiliza HTTPS y medidas técnicas razonables para proteger la transmisión y
+          el almacenamiento de información. Las credenciales se guardan mediante mecanismos de
+          seguridad adecuados: GaritaFlow no almacena contraseñas en texto plano. Ningún sistema
+          conectado a Internet puede garantizar seguridad absoluta.
         </p>
       </Seccion>
 
