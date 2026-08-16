@@ -1,0 +1,12 @@
+﻿CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE TABLE IF NOT EXISTS ports(id SERIAL PRIMARY KEY,code VARCHAR(20) UNIQUE NOT NULL,name VARCHAR(100) NOT NULL,cbp_id VARCHAR(20) NOT NULL,is_active BOOLEAN DEFAULT true,created_at TIMESTAMPTZ DEFAULT NOW());
+INSERT INTO ports(code,name,cbp_id)VALUES('SAN_YSIDRO','San Ysidro','250401'),('OTAY','Otay Mesa','250601')ON CONFLICT(code)DO NOTHING;
+CREATE TABLE IF NOT EXISTS lane_types(id SERIAL PRIMARY KEY,port_id INT NOT NULL REFERENCES ports(id),lane_type VARCHAR(10) NOT NULL,mode VARCHAR(12) NOT NULL,is_active BOOLEAN DEFAULT true,UNIQUE(port_id,lane_type,mode));
+INSERT INTO lane_types(port_id,lane_type,mode)VALUES(1,'GENERAL','VEHICULAR'),(1,'READY','VEHICULAR'),(1,'SENTRI','VEHICULAR'),(1,'GENERAL','PEDESTRIAN'),(1,'READY','PEDESTRIAN'),(2,'GENERAL','VEHICULAR'),(2,'READY','VEHICULAR'),(2,'SENTRI','VEHICULAR'),(2,'GENERAL','PEDESTRIAN'),(2,'READY','PEDESTRIAN')ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS wait_snapshots(id BIGSERIAL PRIMARY KEY,lane_type_id INT NOT NULL REFERENCES lane_types(id),wait_minutes INT,lanes_open INT,cbp_updated TIMESTAMPTZ,recorded_at TIMESTAMPTZ DEFAULT NOW());
+CREATE INDEX IF NOT EXISTS idx_snap ON wait_snapshots(lane_type_id,recorded_at DESC);
+CREATE TABLE IF NOT EXISTS estimates(id BIGSERIAL PRIMARY KEY,lane_type_id INT NOT NULL REFERENCES lane_types(id),estimated_wait INT NOT NULL,confidence SMALLINT NOT NULL,status VARCHAR(8) NOT NULL,recommendation TEXT,calculated_at TIMESTAMPTZ DEFAULT NOW());
+CREATE INDEX IF NOT EXISTS idx_est ON estimates(lane_type_id,calculated_at DESC);
+CREATE TABLE IF NOT EXISTS hourly_averages(id SERIAL PRIMARY KEY,lane_type_id INT NOT NULL REFERENCES lane_types(id),day_of_week SMALLINT NOT NULL,hour_of_day SMALLINT NOT NULL,avg_wait NUMERIC(5,1),sample_count INT DEFAULT 0,updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(lane_type_id,day_of_week,hour_of_day));
+CREATE TABLE IF NOT EXISTS user_reports(id BIGSERIAL PRIMARY KEY,lane_type_id INT NOT NULL REFERENCES lane_types(id),reported_wait INT NOT NULL,comment VARCHAR(280),ip_hash VARCHAR(64),created_at TIMESTAMPTZ DEFAULT NOW());
+CREATE OR REPLACE VIEW current_estimates AS SELECT DISTINCT ON(e.lane_type_id) e.id,p.code AS port_code,p.name AS port_name,lt.lane_type,lt.mode,e.estimated_wait,e.confidence,e.status,e.recommendation,e.calculated_at FROM estimates e JOIN lane_types lt ON lt.id=e.lane_type_id JOIN ports p ON p.id=lt.port_id WHERE lt.is_active=true ORDER BY e.lane_type_id,e.calculated_at DESC;

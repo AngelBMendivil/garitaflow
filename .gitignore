@@ -33,6 +33,10 @@ garitaflow-app/android/local.properties
 garitaflow-app/ios/Pods/
 garitaflow-app/ios/build/
 
+# ─── Next.js (garitaflow-web) ─────────────────────────────────
+garitaflow-web/.next/
+garitaflow-web/out/
+
 # ─── Respaldo local (no versionar) ────────────────────────────
 garitaflow-app-backup/
 
