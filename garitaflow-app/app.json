@@ -39,9 +39,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash.png",
-          "backgroundColor": "#FFFFFF",
-          "imageWidth": 300,
+          "_comment": "Android 12+ recorta el icono del splash a una mascara circular y solo deja visible ~2/3 del lienzo, asi que un wordmark ancho (splash.png, 1603x340) sale cortado sin importar resizeMode. Se usa la marca cuadrada centrada sobre fondo solido, con imageWidth conservador para que quepa dentro de la mascara. El wordmark completo lo muestra AnimatedSplash ya dentro de la app.",
+          "image": "./assets/brand/mark.png",
+          "backgroundColor": "#0B1020",
+          "imageWidth": 180,
           "resizeMode": "contain"
         }
       ],

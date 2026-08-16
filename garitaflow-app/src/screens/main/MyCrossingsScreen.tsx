@@ -16,6 +16,7 @@ import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
 import { recurringApi, portsApi } from '../../lib/api';
 import { useNotifications } from '../../hooks/useNotifications';
+import { syncLocalAlarms, type RecurringRule } from '../../lib/localAlarms';
 import Logo from '../../components/Logo';
 import EsperaPorHora from '../../components/EsperaPorHora';
 import TimePicker from '../../components/TimePicker';
@@ -88,16 +89,31 @@ export default function MyCrossingsScreen() {
     setEditingId(null);
   };
 
+  // Solo se resincronizan las alarmas locales cuando la lista viene de verdad
+  // del servidor. Si `list()` falla (sin red) NO queremos borrar del teléfono
+  // alarmas que siguen siendo válidas.
+  const [itemsFresh, setItemsFresh] = useState(false);
+
   const load = useCallback(async () => {
     try {
       const rows = await recurringApi.list();
       setItems(rows || []);
+      setItemsFresh(true);
     } catch {
       setItems([]);
+      setItemsFresh(false);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Programa en el teléfono una alarma local por cada día activo. Idempotente:
+  // reprograma desde cero, así que crear / editar / apagar / borrar quedan
+  // cubiertos sin llamar nada extra desde cada handler.
+  useEffect(() => {
+    if (!itemsFresh) return;
+    syncLocalAlarms(items as RecurringRule[]);
+  }, [items, itemsFresh]);
 
   useEffect(() => {
     load();
@@ -127,11 +143,12 @@ export default function MyCrossingsScreen() {
     if (fDays.length === 0) return Alert.alert('Faltan días', 'Elige al menos un día.');
     setSaving(true);
     try {
-      // La alarma necesita permiso de notificaciones + token registrado,
-      // si no, no hay a dónde mandar el aviso. Se pide al crear/editar.
+      // El permiso es lo único indispensable: sin él no se puede programar la
+      // alarma local. El registro de push es la capa extra (avisos reactivos)
+      // y es best-effort: si falla, la alarma local igual queda programada.
       const granted = await requestPermission();
       if (granted) {
-        await registerForPush();
+        registerForPush().catch(() => {});
       }
 
       const payload = {
@@ -159,12 +176,12 @@ export default function MyCrossingsScreen() {
         // notificaciones (y el sonido) sí entran en su teléfono.
         await showLocal(
           wasEditing ? '⏰ Alarma actualizada' : '⏰ Alarma configurada',
-          `Te avisaré con el estado de la fila para tu cruce de las ${fTime}.`
+          `Sonará ${fLead} min antes de tu cruce de las ${fTime}, aunque estés sin señal.`
         );
       } else {
         Alert.alert(
           wasEditing ? 'Alarma actualizada' : 'Alarma guardada',
-          'Para recibir el aviso activa las notificaciones de GaritaFlow en los ajustes de tu teléfono.'
+          'La alarma quedó guardada, pero no sonará hasta que actives las notificaciones de GaritaFlow en los ajustes de tu teléfono.'
         );
       }
     } catch (e: any) {

@@ -26,6 +26,18 @@ const fmtTime = (iso?: string | null) => {
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 };
 
+/** A partir de aquí el dato oficial de CBP se considera viejo (minutos). */
+const CBP_STALE_MIN = 90;
+
+/** Antigüedad en minutos de una marca de tiempo. Null si no aplica. */
+const ageMinutes = (iso?: string | null): number | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  return mins < 0 ? null : mins;
+};
+
 /** "hace 4 min" a partir de una marca de tiempo. Null si no aplica. */
 const agoLabel = (iso?: string | null) => {
   if (!iso) return null;
@@ -62,9 +74,16 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
 
   // ─── CBP oficial ───────────────────────────────────────────────────────────
   const cbpRaw = data.cbp?.wait_minutes;
+  const cbpTs = data.cbp?.updated_at ?? data.cbp?.reported_at;
+  const cbpAgeMin = ageMinutes(cbpTs);
+  // Pasado el umbral el dato oficial ya no describe la fila de ahora (el cron
+  // que lo refresca puede estar caído). Se sigue mostrando, pero marcado como
+  // viejo y fuera del veredicto, en vez de competir de tú a tú con la comunidad.
+  const cbpStale = cbpAgeMin !== null && cbpAgeMin > CBP_STALE_MIN;
   const hasCbp = cbpRaw !== null && cbpRaw !== undefined;
+  const cbpUsable = hasCbp && !cbpStale;
   const cbpWait = hasCbp ? Math.round(Number(cbpRaw)) : null;
-  const cbpAgo = agoLabel(data.cbp?.updated_at ?? data.cbp?.reported_at);
+  const cbpAgo = agoLabel(cbpTs);
 
   // ─── Comunidad: promedio de tiempos reales de cruce + N usuarios ───────────
   const commRaw =
@@ -77,8 +96,9 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
   const lanesOpen = data.cbp?.lanes_open;
   const hasDoors = lanesOpen !== null && lanesOpen !== undefined && Number(lanesOpen) > 0;
 
-  // Veredicto: solo tiene sentido comparando ambas fuentes.
-  const delta = hasCbp && hasComm ? (commWait as number) - (cbpWait as number) : null;
+  // Veredicto: solo tiene sentido comparando ambas fuentes y con el dato
+  // oficial fresco. Contra una lectura de hace horas el veredicto miente.
+  const delta = cbpUsable && hasComm ? (commWait as number) - (cbpWait as number) : null;
   const showVerdict = delta !== null && Math.abs(delta) >= 5;
   const faster = (delta ?? 0) < 0;
 
@@ -86,9 +106,11 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
   const barPct = Math.max(4, Math.min(100, (wait / 90) * 100));
   const updated = fmtTime(data.calculated_at);
 
-  const formula = hasComm
-    ? 'CBP + histórico + comunidad'
-    : 'CBP + histórico';
+  // La fórmula debe reflejar lo que de verdad entró en el cálculo: si el dato
+  // de CBP está viejo, anunciarlo como insumo vigente es engañoso.
+  const formula = cbpUsable
+    ? (hasComm ? 'CBP + histórico + comunidad' : 'CBP + histórico')
+    : (hasComm ? 'Histórico + comunidad' : 'Histórico');
 
   return (
     <View style={styles.card}>
@@ -109,13 +131,19 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
       {/* ─── Contraste: CBP oficial vs comunidad ────────────────────────── */}
       {hasCbp && (
         <View style={styles.panels}>
-          <View style={[styles.panel, styles.panelCbp]}>
-            <Text style={styles.panelLabel}>CBP oficial</Text>
+          <View style={[styles.panel, styles.panelCbp, cbpStale && styles.panelStale]}>
+            <Text style={styles.panelLabel}>
+              CBP oficial{cbpStale ? ' · desactualizado' : ''}
+            </Text>
             <View style={styles.panelValueLine}>
-              <Text style={styles.panelValue}>{cbpWait}</Text>
-              <Text style={styles.panelUnit}>min</Text>
+              <Text style={[styles.panelValue, cbpStale && styles.valueStale]}>{cbpWait}</Text>
+              <Text style={[styles.panelUnit, cbpStale && styles.valueStale]}>min</Text>
             </View>
-            <Text style={styles.panelMeta}>{cbpAgo ?? 'dato oficial'}</Text>
+            <Text style={styles.panelMeta}>
+              {cbpStale
+                ? `${cbpAgo ?? 'sin actualizar'} · no se usa en la estimación`
+                : cbpAgo ?? 'dato oficial'}
+            </Text>
           </View>
 
           {hasComm && (
@@ -259,6 +287,9 @@ const styles = StyleSheet.create({
   panelCbp: {
     backgroundColor: Colors.darkTile,
   },
+  // El dato viejo se atenúa para que no compita visualmente con el fresco.
+  panelStale: { opacity: 0.55 },
+  valueStale: { textDecorationLine: 'line-through' },
   panelComm: {
     backgroundColor: Colors.darkTileBlue,
     borderWidth: 1.5,

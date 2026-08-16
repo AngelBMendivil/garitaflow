@@ -24,7 +24,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { flowEventsApi, portsApi, profileApi, alertsApi, flowIndexApi, crossingsApi } from '../../lib/api';
 import FlowIndexCard from '../../components/FlowIndexCard';
 import Logo from '../../components/Logo';
-import { useLineDetector } from '../../hooks/useLineDetector';
+import { useLineDetector, lineStatusLabel } from '../../hooks/useLineDetector';
 
 // Banco de avatares (mismo del onboarding)
 const AVATARS = [
@@ -268,8 +268,17 @@ export default function HomeScreen({ navigation }: Props) {
     mode
   );
 
-  // Detector en vivo "¿Estás en la línea?" (GPS del usuario vs geocerca de la garita)
-  const lineStatus = useLineDetector(targetPortId);
+  // Detector en vivo "¿Estás en la línea?" (GPS del usuario vs geocerca de la garita).
+  // Se le pasa code+name para que pueda caer al radio aproximado en las garitas
+  // que todavía no tienen geocerca sembrada en la BD.
+  const targetPort = isPedwest && pedwestPort ? pedwestPort : port;
+  const line = useLineDetector(targetPortId, targetPort?.code, targetPort?.name);
+  const lineStatus = line.status;
+  const lineLabel = lineStatusLabel(line);
+  // El candado del cruce solo aplica con la geocerca real del backend. El radio
+  // aproximado sirve para informar, no para bloquear: si mis coordenadas de
+  // respaldo están un poco corridas no queremos dejar al usuario sin cruzar.
+  const lineBlocksCrossing = lineStatus === 'OUTSIDE' && line.source === 'fence';
 
   // Recomendación: la garita más rápida de la ciudad (comunidad + CBP + estimación)
   const [reco, setReco] = useState<any>(null);
@@ -363,8 +372,8 @@ export default function HomeScreen({ navigation }: Props) {
 
   const handleStartCrossing = async () => {
     if (!targetPortId || loadingStart || laneBlocked) return;
-    // Candado por geolocalización: bloquea SOLO si sabemos que estás fuera de la línea.
-    if (lineStatus === 'OUTSIDE') {
+    // Candado por geolocalización: bloquea SOLO con geocerca real confirmada.
+    if (lineBlocksCrossing) {
       Alert.alert(
         'No estás en la línea',
         'Solo puedes iniciar el cruce cuando estás físicamente en la fila de esta garita.'
@@ -630,38 +639,38 @@ export default function HomeScreen({ navigation }: Props) {
               />
             </View>
 
-            {/* Detector en vivo "¿Estás en la línea?" (GPS vs geocerca) */}
-            <View style={styles.section}>
-              <View
-                style={[
-                  styles.lineBox,
-                  lineStatus === 'IN_LINE'
-                    ? styles.lineIn
-                    : lineStatus === 'OUTSIDE'
-                    ? styles.lineOut
-                    : styles.lineUnknown,
-                ]}
-              >
-                <Text style={styles.lineDot}>
-                  {lineStatus === 'IN_LINE' ? '🟢' : lineStatus === 'OUTSIDE' ? '⚪' : '📍'}
-                </Text>
-                <Text style={styles.lineText}>
-                  {lineStatus === 'IN_LINE'
-                    ? 'Estás en la línea de esta garita'
-                    : lineStatus === 'OUTSIDE'
-                    ? 'No estás en la línea de esta garita'
-                    : 'Detectando tu ubicación…'}
-                </Text>
+            {/* Detector en vivo "¿Estás en la línea?" (GPS vs geocerca).
+                Los estados de fallo son tocables para reintentar a mano. */}
+            {lineStatus !== 'IDLE' && (
+              <View style={styles.section}>
+                <TouchableOpacity
+                  activeOpacity={lineLabel.tone === 'warn' ? 0.7 : 1}
+                  disabled={lineLabel.tone !== 'warn'}
+                  onPress={line.retry}
+                  style={[
+                    styles.lineBox,
+                    lineLabel.tone === 'in'
+                      ? styles.lineIn
+                      : lineLabel.tone === 'out'
+                      ? styles.lineOut
+                      : lineLabel.tone === 'warn'
+                      ? styles.lineWarn
+                      : styles.lineUnknown,
+                  ]}
+                >
+                  <Text style={styles.lineDot}>{lineLabel.icon}</Text>
+                  <Text style={styles.lineText}>{lineLabel.text}</Text>
+                </TouchableOpacity>
               </View>
-            </View>
+            )}
 
             {/* Iniciar cruce — debajo de la pastilla de estimación */}
             {!activeCrossing && targetPortId && !laneBlocked && (
               <View style={styles.section}>
                 <TouchableOpacity
-                  style={[styles.ctaBtn, (loadingStart || lineStatus === 'OUTSIDE') && styles.ctaBtnDisabled]}
+                  style={[styles.ctaBtn, (loadingStart || lineBlocksCrossing) && styles.ctaBtnDisabled]}
                   onPress={handleStartCrossing}
-                  disabled={loadingStart || lineStatus === 'OUTSIDE'}
+                  disabled={loadingStart || lineBlocksCrossing}
                   activeOpacity={0.85}
                 >
                   {loadingStart ? (
@@ -670,7 +679,7 @@ export default function HomeScreen({ navigation }: Props) {
                     <>
                       <Text style={styles.ctaBtnText}>▶  Iniciar cruce por orden</Text>
                       <Text style={styles.ctaBtnSub}>
-                        {lineStatus === 'OUTSIDE'
+                        {lineBlocksCrossing
                           ? 'Disponible cuando estés en la línea'
                           : `${isPedwest ? 'PedWest' : port?.name} · ${LANE_LABEL[lane] || lane}`}
                       </Text>
@@ -866,6 +875,7 @@ const styles = StyleSheet.create({
   lineIn: { backgroundColor: 'rgba(47,191,113,0.12)', borderColor: 'rgba(47,191,113,0.45)' },
   lineOut: { backgroundColor: Colors.darkTile, borderColor: Colors.darkBorder },
   lineUnknown: { backgroundColor: Colors.darkTile, borderColor: Colors.darkBorder },
+  lineWarn: { backgroundColor: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.45)' },
   lineDot: { fontSize: 14 },
   lineText: { color: Colors.darkText, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   activeBanner: {

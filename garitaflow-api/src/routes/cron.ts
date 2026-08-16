@@ -48,7 +48,25 @@ router.post('/refresh-flow-index', async (req: Request, res: Response) => {
       }
     }
 
-    return res.json({ refreshed: results.length, results });
+    // `refreshed` contaba results.length, que incluye los errores: un fracaso
+    // total de 13/13 se reportaba como 200 {"refreshed":13} y los logs se veían
+    // sanos. Ahora se cuentan solo los éxitos y, si fallaron todas, responde 500
+    // para que el scheduler y el monitoreo se enteren.
+    const ok = results.filter((r) => r.score !== null);
+    const failed = results.filter((r) => r.error);
+    const payload = {
+      refreshed: ok.length,
+      failed: failed.length,
+      total: results.length,
+      results,
+    };
+    if (results.length > 0 && ok.length === 0) {
+      console.error(
+        `cron refresh-flow-index: 0/${results.length} puertos actualizados. Primer error: ${failed[0]?.error}`
+      );
+      return res.status(500).json({ ...payload, error: 'Ningún puerto pudo actualizarse' });
+    }
+    return res.json(payload);
   } catch (err) {
     console.error('cron refresh-flow-index error:', err);
     return res.status(500).json({ error: 'Internal server error' });

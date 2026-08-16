@@ -2,7 +2,12 @@ import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Easing } from 'react-native';
 import Logo from './Logo';
 
-/** Splash animado dentro de la app (fade + scale + pulso sutil) sobre fondo blanco. */
+/**
+ * Splash animado dentro de la app (fade + scale + pulso sutil).
+ * El fondo va en el azul oscuro de marca para encadenar sin parpadeo:
+ * splash nativo oscuro → este → Home (que también es oscuro). Antes era blanco
+ * y metía un flash intermedio.
+ */
 export default function AnimatedSplash() {
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.86)).current;
@@ -33,12 +38,12 @@ export default function AnimatedSplash() {
           paddingHorizontal: 24,
         }}
       >
-        <Logo variant="light" size={48} />
+        <Logo variant="dark" size={48} />
       </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  bg: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B1020' },
 });

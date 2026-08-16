@@ -77,6 +77,14 @@ export default function ShareCrossingButton(props: Props) {
       // require dinámico: estas libs se instalan con `expo install`
       const ViewShot = require('react-native-view-shot');
       const Sharing = require('expo-sharing');
+
+      // La tarjeta vive dentro de la ventana (opacity 0), no en left:10000. En
+      // Android una vista fuera de la ventana no se recompone y captureRef
+      // devolvía el bitmap cacheado de un render anterior: por eso se compartía
+      // una tarjeta vieja, con la garita o los minutos del cruce pasado.
+      // Un frame de gracia asegura que el contenido actual ya se dibujó.
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+
       const uri = await ViewShot.captureRef(cardRef, { format: 'png', quality: 0.95, result: 'tmpfile' });
       if (uri && (await Sharing.isAvailableAsync())) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir mi cruce' });
@@ -154,7 +162,10 @@ const styles = StyleSheet.create({
   btnCompact: { paddingVertical: 10, paddingHorizontal: 18, borderRadius: 12 },
   btnFull: { alignSelf: 'stretch', width: '100%' },
   btnTxt: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  offscreen: { position: 'absolute', left: 10000, top: 0 },
+  // Dentro de la ventana pero invisible e intocable: así Android sí la dibuja
+  // y captureRef obtiene el frame actual. Con left:10000 quedaba fuera de la
+  // ventana, no se recomponía, y se capturaba un bitmap viejo.
+  offscreen: { position: 'absolute', left: 0, top: 0, opacity: 0, zIndex: -1 },
   card: {
     width: 340, height: 600, backgroundColor: Colors.darkBg,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28,
