@@ -16,8 +16,15 @@ export const LEGAL = {
   /** Persona física. */
   RESPONSABLE: 'Ángel de Jesús Barreras Mendívil',
 
-  /** Buzón de Zoho Mail sobre el dominio propio. */
-  CONTACTO_EMAIL: 'privacidad@garitaflow.com',
+  /**
+   * Buzón de contacto para privacidad y solicitudes de eliminación de cuenta.
+   * Tiene que ser una dirección que RECIBA de verdad: si rebota, Google Play
+   * lo toma como causa de rechazo.
+   *
+   * Pendiente: cambiar a privacidad@garitaflow.com cuando el dominio tenga sus
+   * registros MX apuntando a Zoho (hoy no los tiene y los correos rebotan).
+   */
+  CONTACTO_EMAIL: 'angelmendivil89@gmail.com',
 
   /**
    * Se publica solo ciudad y estado, no la dirección exacta: es lo habitual al
