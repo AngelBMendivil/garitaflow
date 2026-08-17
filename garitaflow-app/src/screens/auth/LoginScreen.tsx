@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../lib/types';
@@ -19,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isGoogleConfigured } from '../../hooks/useGoogleAuth';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import Logo from '../../components/Logo';
+import { LEGAL_URLS, EDAD_MINIMA } from '../../lib/legal';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -134,6 +136,27 @@ export default function LoginScreen({ navigation }: Props) {
               <Text style={styles.switchHighlight}>Regístrate</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* Entrar con Google también crea la cuenta si no existe, así que el
+              requisito de edad se hace constar también aquí. Es un aviso
+              pasivo: no añade fricción a quien ya tiene cuenta. */}
+          <Text style={styles.legalNote}>
+            Al continuar confirmas que tienes al menos {EDAD_MINIMA} años y aceptas los{' '}
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL(LEGAL_URLS.terminos)}
+            >
+              Términos de Uso
+            </Text>{' '}
+            y el{' '}
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL(LEGAL_URLS.privacidad)}
+            >
+              Aviso de Privacidad
+            </Text>
+            .
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -201,6 +224,11 @@ const styles = StyleSheet.create({
   },
   googleText: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   switchLink: { marginTop: 24, alignItems: 'center' },
+  legalNote: {
+    marginTop: 18, fontSize: 12, lineHeight: 17,
+    color: Colors.textMuted, textAlign: 'center',
+  },
+  legalLink: { color: Colors.blueFlow, fontWeight: '700', textDecorationLine: 'underline' },
   switchText: { fontSize: 14, color: Colors.textSecondary },
   switchHighlight: { color: Colors.blueFlow, fontWeight: '700' },
 });

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../lib/types';
@@ -19,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isGoogleConfigured } from '../../hooks/useGoogleAuth';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import Logo from '../../components/Logo';
+import { LEGAL_URLS, EDAD_MINIMA } from '../../lib/legal';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>;
@@ -32,6 +34,15 @@ export default function RegisterScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // Autodeclaración de edad. Se pide una confirmación, no la fecha de
+  // nacimiento: los términos exigen 18 años y así no recolectamos un dato
+  // personal extra solo para verificarlo.
+  const [aceptaEdad, setAceptaEdad] = useState(false);
+
+  const avisarFaltaEdad = () =>
+    setErrorMsg(
+      `Debes confirmar que tienes al menos ${EDAD_MINIMA} años y aceptar los términos.`
+    );
 
   const handleRegister = async () => {
     setErrorMsg('');
@@ -41,6 +52,10 @@ export default function RegisterScreen({ navigation }: Props) {
     }
     if (password.length < 8) {
       setErrorMsg('La contraseña debe tener mínimo 8 caracteres.');
+      return;
+    }
+    if (!aceptaEdad) {
+      avisarFaltaEdad();
       return;
     }
     setLoading(true);
@@ -101,12 +116,41 @@ export default function RegisterScreen({ navigation }: Props) {
               placeholderTextColor={Colors.textMuted}
             />
 
+            <TouchableOpacity
+              style={styles.checkRow}
+              onPress={() => { setAceptaEdad((v) => !v); setErrorMsg(''); }}
+              activeOpacity={0.7}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: aceptaEdad }}
+            >
+              <View style={[styles.checkBox, aceptaEdad && styles.checkBoxOn]}>
+                {aceptaEdad ? <Text style={styles.checkMark}>✓</Text> : null}
+              </View>
+              <Text style={styles.checkText}>
+                Confirmo que tengo al menos {EDAD_MINIMA} años y acepto los{' '}
+                <Text
+                  style={styles.checkLink}
+                  onPress={() => Linking.openURL(LEGAL_URLS.terminos)}
+                >
+                  Términos de Uso
+                </Text>{' '}
+                y el{' '}
+                <Text
+                  style={styles.checkLink}
+                  onPress={() => Linking.openURL(LEGAL_URLS.privacidad)}
+                >
+                  Aviso de Privacidad
+                </Text>
+                .
+              </Text>
+            </TouchableOpacity>
+
             {errorMsg ? (
               <Text style={styles.errorText}>{errorMsg}</Text>
             ) : null}
 
             <TouchableOpacity
-              style={[styles.btn, loading && styles.btnDisabled]}
+              style={[styles.btn, (loading || !aceptaEdad) && styles.btnDisabled]}
               onPress={handleRegister}
               disabled={loading}
               activeOpacity={0.85}
@@ -131,6 +175,8 @@ export default function RegisterScreen({ navigation }: Props) {
               style={styles.googleBtn}
               textStyle={styles.googleText}
               disabledStyle={styles.btnDisabled}
+              blocked={!aceptaEdad}
+              onBlockedPress={avisarFaltaEdad}
             />
           ) : (
             <TouchableOpacity
@@ -202,6 +248,16 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   btnDisabled: { opacity: 0.6 },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 20 },
+  checkBox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+    borderColor: Colors.inputBorder, alignItems: 'center', justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkBoxOn: { backgroundColor: Colors.green, borderColor: Colors.green },
+  checkMark: { color: Colors.white, fontSize: 14, fontWeight: '800', lineHeight: 18 },
+  checkText: { flex: 1, fontSize: 13, lineHeight: 19, color: Colors.textSecondary },
+  checkLink: { color: Colors.blueFlow, fontWeight: '700', textDecorationLine: 'underline' },
   btnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
   errorText: {
     color: '#E00025',

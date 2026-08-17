@@ -21,18 +21,26 @@ export default function GoogleSignInButton({
   style,
   textStyle,
   disabledStyle,
+  blocked,
+  onBlockedPress,
 }: {
   label: string;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   disabledStyle?: StyleProp<ViewStyle>;
+  /** Impide iniciar el flujo (p. ej. falta confirmar la edad en el registro). */
+  blocked?: boolean;
+  /** Se llama al tocar el botón bloqueado, para explicar por qué. */
+  onBlockedPress?: () => void;
 }) {
   const { signIn, loading, disabled } = useGoogleAuth();
   const off = loading || disabled;
+  // Bloqueado se mantiene tocable a propósito: si estuviera deshabilitado el
+  // usuario no entendería por qué no pasa nada al tocarlo.
   return (
     <TouchableOpacity
-      style={[style, off && disabledStyle]}
-      onPress={signIn}
+      style={[style, (off || blocked) && disabledStyle]}
+      onPress={blocked ? onBlockedPress : signIn}
       disabled={off}
       activeOpacity={0.85}
     >
