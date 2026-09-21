@@ -29,6 +29,8 @@ interface Props {
   laneLabel?: string;
   minutes?: number;
   incidentLabel?: string;
+  /** Horas ya formateadas de inicio y fin, iguales a las de la pantalla de cruce terminado. */
+  times?: { start: string; end: string };
   compact?: boolean;
   fullWidth?: boolean;
 }
@@ -39,7 +41,9 @@ function content(p: Props) {
   if (p.moment === 'finish') {
     return {
       emoji: '🎉',
-      top: 'Crucé por',
+      // La pantalla le dice "¡Cruzaste!" al usuario; la imagen la ve otra
+      // persona, así que habla en primera persona.
+      top: '¡Crucé!',
       where,
       big: p.minutes != null ? `${p.minutes} min` : '—',
       sub: 'Tiempo real de mi cruce',
@@ -133,17 +137,42 @@ export default function ShareCrossingButton(props: Props) {
               ))}
             </View>
           )}
-          <Logo variant="dark" size={44} />
-          {props.moment === 'incident' ? (
-            <Text style={styles.emoji}>{c.emoji}</Text>
-          ) : (
+          <Logo variant="light" size={34} />
+          {props.moment === 'start' ? (
             <View style={styles.vehicleWrap}>
-              <VehicleIcon vehicleKey={user?.vehicle_key} color={user?.vehicle_color} size={130} />
+              <VehicleIcon vehicleKey={user?.vehicle_key} color={user?.vehicle_color} size={120} />
             </View>
+          ) : (
+            <Text style={styles.emoji}>{c.emoji}</Text>
           )}
-          <Text style={styles.top}>{c.top}</Text>
-          <Text style={styles.where}>{c.where}</Text>
-          <Text style={styles.big}>{c.big}</Text>
+          {props.moment === 'finish' ? (
+            // Mismo orden y estilo que la pantalla "¡Cruzaste!": título, minutos
+            // en verde, garita, y el recuadro de inicio → fin.
+            <>
+              <Text style={styles.title}>{c.top}</Text>
+              <Text style={styles.big}>{c.big}</Text>
+              <Text style={styles.where}>{c.where}</Text>
+              {props.times ? (
+                <View style={styles.timesCard}>
+                  <View style={styles.timeCell}>
+                    <Text style={styles.timeLabel}>Inicio</Text>
+                    <Text style={styles.timeValue}>{props.times.start}</Text>
+                  </View>
+                  <Text style={styles.timeArrow}>→</Text>
+                  <View style={styles.timeCell}>
+                    <Text style={styles.timeLabel}>Fin</Text>
+                    <Text style={styles.timeValue}>{props.times.end}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.top}>{c.top}</Text>
+              <Text style={styles.where}>{c.where}</Text>
+              <Text style={[styles.big, styles.bigText]}>{c.big}</Text>
+            </>
+          )}
           <Text style={styles.sub}>{c.sub}</Text>
           <View style={styles.pill}>
             <Text style={styles.pillTxt}>garitaflow.com</Text>
@@ -166,20 +195,33 @@ const styles = StyleSheet.create({
   // y captureRef obtiene el frame actual. Con left:10000 quedaba fuera de la
   // ventana, no se recomponía, y se capturaba un bitmap viejo.
   offscreen: { position: 'absolute', left: 0, top: 0, opacity: 0, zIndex: -1 },
+  // La tarjeta replica la pantalla clara de cruce terminado. Antes era un
+  // diseño oscuro aparte que no se actualizó cuando esa pantalla cambió, y lo
+  // que se compartía no se parecía a lo que el usuario veía.
   card: {
-    width: 340, height: 600, backgroundColor: Colors.darkBg,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28,
+    width: 340, height: 600, backgroundColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 26,
   },
-  emoji: { fontSize: 52, marginTop: 22 },
-  vehicleWrap: { marginTop: 20, marginBottom: 4 },
-  top: { color: '#BCD0F5', fontSize: 15, marginTop: 10 },
-  where: { color: '#FFFFFF', fontSize: 22, fontWeight: '800', textAlign: 'center', marginTop: 2 },
-  big: { color: Colors.commBlue, fontSize: 46, fontWeight: '800', marginTop: 8 },
-  sub: { color: '#DFE9FF', fontSize: 14, marginTop: 4 },
+  emoji: { fontSize: 56, marginTop: 18 },
+  vehicleWrap: { marginTop: 18, marginBottom: 2 },
+  title: { fontSize: 26, fontWeight: '800', color: Colors.navyGarita, marginTop: 8 },
+  top: { fontSize: 15, color: Colors.textSecondary, marginTop: 10 },
+  big: { fontSize: 56, fontWeight: '800', color: Colors.green, marginTop: 6 },
+  bigText: { fontSize: 36, color: Colors.navyGarita },
+  where: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginTop: 4 },
+  timesCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18,
+    backgroundColor: Colors.white, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 22,
+    marginTop: 16, borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  timeCell: { alignItems: 'center' },
+  timeLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  timeValue: { fontSize: 17, fontWeight: '800', color: Colors.navyGarita, marginTop: 2 },
+  timeArrow: { fontSize: 18, color: Colors.textMuted, fontWeight: '700' },
+  sub: { fontSize: 13, color: Colors.textSecondary, marginTop: 14, textAlign: 'center' },
   pill: {
-    marginTop: 22, backgroundColor: 'rgba(255,255,255,0.14)',
-    borderColor: 'rgba(255,255,255,0.25)', borderWidth: 1,
-    borderRadius: 20, paddingVertical: 8, paddingHorizontal: 18,
+    marginTop: 14, backgroundColor: Colors.white, borderColor: Colors.cardBorder, borderWidth: 1,
+    borderRadius: 20, paddingVertical: 7, paddingHorizontal: 16,
   },
-  pillTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  pillTxt: { color: Colors.blueFlow, fontSize: 13, fontWeight: '700' },
 });

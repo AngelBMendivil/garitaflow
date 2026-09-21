@@ -179,6 +179,7 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
               moment="finish"
               portName={portName}
               minutes={finished.minutes}
+              times={{ start: fmtTime(finished.startedAt), end: fmtTime(finished.endedAt) }}
               fullWidth
             />
             <TouchableOpacity
