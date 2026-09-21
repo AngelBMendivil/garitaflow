@@ -169,6 +169,11 @@ export const flowIndexApi = {
   // Espera típica por hora del día (histórico + tendencia hoy + mejor/peor/ahora)
   hourly: (portId: string | number, lane = 'GENERAL', mode = 'VEHICULAR') =>
     request<any>(`/flow-index/${portId}/hourly?lane=${lane}&mode=${mode}`),
+  // Espera típica por día de semana y hora; la usan las alarmas locales.
+  weekly: (portId: string | number, lane = 'GENERAL', mode = 'VEHICULAR') =>
+    request<{ week: ({ avg: number; n: number } | null)[][]; byHour: ({ avg: number; n: number } | null)[] }>(
+      `/flow-index/${portId}/weekly?lane=${lane}&mode=${mode}`
+    ),
 };
 
 // ─── Ports ───────────────────────────────────────────────────────────────────

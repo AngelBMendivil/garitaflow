@@ -16,7 +16,7 @@ import { Colors } from '../../lib/colors';
 import { useAuth } from '../../context/AuthContext';
 import { recurringApi, portsApi } from '../../lib/api';
 import { useNotifications } from '../../hooks/useNotifications';
-import { syncLocalAlarms, type RecurringRule } from '../../lib/localAlarms';
+import { syncLocalAlarms, fetchTypicalWeeks, type RecurringRule } from '../../lib/localAlarms';
 import Logo from '../../components/Logo';
 import EsperaPorHora from '../../components/EsperaPorHora';
 import TimePicker from '../../components/TimePicker';
@@ -112,7 +112,14 @@ export default function MyCrossingsScreen() {
   // cubiertos sin llamar nada extra desde cada handler.
   useEffect(() => {
     if (!itemsFresh) return;
-    syncLocalAlarms(items as RecurringRule[]);
+    let alive = true;
+    (async () => {
+      const rules = items as RecurringRule[];
+      // El aviso dice cómo suele estar la fila ese día a esa hora.
+      const typical = await fetchTypicalWeeks(rules);
+      if (alive) syncLocalAlarms(rules, typical);
+    })();
+    return () => { alive = false; };
   }, [items, itemsFresh]);
 
   useEffect(() => {

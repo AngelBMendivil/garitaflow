@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { flowIndexApi, recurringApi } from './api';
 
 /**
  * Alarmas locales programadas (tipo despertador).
@@ -25,6 +26,7 @@ export interface RecurringRule {
   port_id: number | string;
   port_name?: string;
   lane_type?: string;
+  mode?: string;
   days_of_week?: number[];   // 0=Dom .. 6=Sáb (misma convención que el backend)
   target_time?: string;      // 'HH:MM' hora local
   lead_minutes?: number;
@@ -70,12 +72,91 @@ function shiftBack(dow: number, h: number, m: number, leadMinutes: number) {
   return { dow: day, hour: Math.floor(total / 60) % 24, minute: total % 60 };
 }
 
-function bodyFor(rule: RecurringRule, hhmm: string): { title: string; body: string } {
-  const where = rule.port_name ? ` por ${rule.port_name}` : '';
-  const lead = rule.lead_minutes ?? 45;
+/**
+ * Espera típica por día de semana y hora (de /flow-index/:id/weekly).
+ *
+ * Una alarma local se programa con el texto ya escrito: a la hora de sonar el
+ * teléfono no sabe cómo está la fila. Lo más útil que puede decir sin servidor
+ * es cómo SUELE estar ese día a esa hora, y lo dice como "suele", no como dato
+ * en vivo. Se recalcula cada vez que se reprograman las alarmas (al abrir la
+ * app), así que el promedio se mantiene al día.
+ */
+type TypicalCell = { avg: number; n: number } | null;
+export interface TypicalWeek {
+  week: TypicalCell[][]; // [dow 0=dom][hora]
+  byHour: TypicalCell[]; // todos los días juntos, de respaldo
+}
+
+/** Una celda con menos lecturas que esto no es representativa. */
+const MIN_SAMPLES = 10;
+
+const DIAS = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
+const LANE_LABEL: Record<string, string> = { GENERAL: 'General', READY: 'Ready Lane', SENTRI: 'SENTRI' };
+
+function typicalKey(rule: RecurringRule): string {
+  return `${rule.port_id}|${rule.lane_type || 'GENERAL'}|${rule.mode || 'VEHICULAR'}`;
+}
+
+/**
+ * Descarga la semana típica de cada combinación garita/carril distinta (una
+ * llamada por combinación, no por alarma ni por día). Lo que falle se omite:
+ * esas alarmas simplemente salen sin el dato de la fila.
+ */
+export async function fetchTypicalWeeks(rules: RecurringRule[]): Promise<Map<string, TypicalWeek>> {
+  const out = new Map<string, TypicalWeek>();
+  const unique = new Map<string, RecurringRule>();
+  for (const r of rules) if (r.active !== false) unique.set(typicalKey(r), r);
+  await Promise.all(
+    Array.from(unique.entries()).map(async ([key, r]) => {
+      try {
+        const d = await flowIndexApi.weekly(r.port_id, r.lane_type || 'GENERAL', r.mode || 'VEHICULAR');
+        if (d && Array.isArray(d.week) && Array.isArray(d.byHour)) out.set(key, d);
+      } catch {
+        // sin dato típico para esta garita: la alarma usa el texto genérico
+      }
+    })
+  );
+  return out;
+}
+
+/** Minutos legibles: sin falsa precisión arriba de 10 (~19 → ~20). */
+function redondear(m: number): number {
+  return m < 10 ? m : Math.round(m / 5) * 5;
+}
+
+function textoFila(minutos: number): string {
+  return minutos < 5 ? 'casi no hay fila' : `la fila suele ir en ~${redondear(minutos)} min`;
+}
+
+function bodyFor(
+  rule: RecurringRule,
+  hhmm: string,
+  dow: number,
+  hour: number,
+  typical?: TypicalWeek
+): { title: string; body: string } {
+  const lane = LANE_LABEL[rule.lane_type || 'GENERAL'] || rule.lane_type || '';
+  const peatonal = rule.mode === 'PEDESTRIAN' ? ' peatonal' : '';
+  const donde = [rule.port_name, `${lane}${peatonal}`].filter(Boolean).join(' ');
+  const lead = Number(rule.lead_minutes ?? 45) || 0;
+  const faltan = lead > 0 ? `Faltan ${lead} min para tu cruce.` : 'Es la hora de tu cruce.';
+
+  // Primero el dato de ese día de la semana; si hay pocas lecturas, el
+  // promedio de todos los días a esa hora; si tampoco, el texto de antes.
+  const celda = typical?.week?.[dow]?.[hour];
+  const general = typical?.byHour?.[hour];
+  let fila = '';
+  if (celda && celda.n >= MIN_SAMPLES) {
+    fila = `Los ${DIAS[dow]} a las ${hhmm} ${textoFila(celda.avg)}.`;
+  } else if (general && general.n >= MIN_SAMPLES) {
+    fila = `A las ${hhmm} ${textoFila(general.avg)}.`;
+  }
+
   return {
-    title: '⏰ Hora de salir',
-    body: `Tu cruce${where} es a las ${hhmm}. Te avisamos ${lead} min antes para que agarres buen momento.`,
+    title: `⏰ Tu cruce de las ${hhmm}${donde ? ` · ${donde}` : ''}`,
+    body: fila
+      ? `${fila} ${faltan}`
+      : `${faltan} Te avisamos con tiempo para que agarres buen momento.`,
   };
 }
 
@@ -97,6 +178,10 @@ export async function cancelLocalAlarms(recurringId?: string): Promise<number> {
   }
 }
 
+// Las sincronizaciones se encadenan: si dos pantallas reprograman a la vez,
+// una podría borrar mientras la otra programa y quedar alarmas duplicadas.
+let cola: Promise<unknown> = Promise.resolve();
+
 /**
  * Deja programadas exactamente las alarmas de `rules` (una por día activo).
  * Es idempotente: borra las anteriores y reprograma, así que se puede llamar
@@ -105,7 +190,16 @@ export async function cancelLocalAlarms(recurringId?: string): Promise<number> {
  * Devuelve cuántas alarmas quedaron activas. Nunca lanza: si el permiso está
  * denegado o la API no existe (Expo Go), degrada a 0 en silencio.
  */
-export async function syncLocalAlarms(rules: RecurringRule[]): Promise<number> {
+export function syncLocalAlarms(
+  rules: RecurringRule[],
+  typical?: Map<string, TypicalWeek>
+): Promise<number> {
+  const run = cola.then(() => syncNow(rules, typical));
+  cola = run.catch(() => undefined);
+  return run;
+}
+
+async function syncNow(rules: RecurringRule[], typical?: Map<string, TypicalWeek>): Promise<number> {
   try {
     const perm = await Notifications.getPermissionsAsync();
     await cancelLocalAlarms();
@@ -122,11 +216,13 @@ export async function syncLocalAlarms(rules: RecurringRule[]): Promise<number> {
       if (!days.length) continue;
 
       const lead = Number(rule.lead_minutes ?? 45) || 0;
-      const { title, body } = bodyFor(rule, rule.target_time!);
+      const semana = typical?.get(typicalKey(rule));
 
       for (const dow of days) {
         if (typeof dow !== 'number' || dow < 0 || dow > 6) continue;
         const fire = shiftBack(dow, at.h, at.m, lead);
+        // El texto va por día: la fila de un lunes no es la de un domingo.
+        const { title, body } = bodyFor(rule, rule.target_time!, dow, at.h, semana);
         try {
           await Notifications.scheduleNotificationAsync({
             content: {
@@ -154,4 +250,20 @@ export async function syncLocalAlarms(rules: RecurringRule[]): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/**
+ * Relee las alarmas del servidor y las reprograma con la espera típica al día.
+ * Se llama al abrir la app. Si la lista no se puede leer (sin red) no toca
+ * nada: las alarmas ya programadas en el teléfono siguen valiendo.
+ */
+export async function refreshLocalAlarms(): Promise<void> {
+  let rules: RecurringRule[];
+  try {
+    rules = ((await recurringApi.list()) || []) as RecurringRule[];
+  } catch {
+    return;
+  }
+  const typical = await fetchTypicalWeeks(rules);
+  await syncLocalAlarms(rules, typical);
 }

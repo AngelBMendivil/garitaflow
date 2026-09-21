@@ -25,6 +25,7 @@ import { flowEventsApi, portsApi, profileApi, alertsApi, flowIndexApi, crossings
 import FlowIndexCard from '../../components/FlowIndexCard';
 import Logo from '../../components/Logo';
 import { useLineDetector, lineStatusLabel } from '../../hooks/useLineDetector';
+import { refreshLocalAlarms } from '../../lib/localAlarms';
 
 // Banco de avatares (mismo del onboarding)
 const AVATARS = [
@@ -135,6 +136,10 @@ export default function HomeScreen({ navigation }: Props) {
   // Registra el push token al abrir (silencioso: si ya hay permiso, obtiene y
   // guarda el token; si no, no molesta). Necesario para que lleguen las alarmas.
   useEffect(() => { registerForPush(); }, [registerForPush]);
+
+  // Reprograma las alarmas de cruce con la espera típica al día. Inicio es la
+  // primera pantalla tras abrir la app, así que esto corre una vez por sesión.
+  useEffect(() => { refreshLocalAlarms(); }, []);
 
   // Refresca el cruce activo cada vez que Inicio recupera el foco (p. ej. al
   // volver de terminar un cruce), para que el banner/estado no queden pegados.
