@@ -275,10 +275,10 @@ export default function HomeScreen({ navigation }: Props) {
   const line = useLineDetector(targetPortId, targetPort?.code, targetPort?.name);
   const lineStatus = line.status;
   const lineLabel = lineStatusLabel(line);
-  // El candado del cruce solo aplica con la geocerca real del backend. El radio
-  // aproximado sirve para informar, no para bloquear: si mis coordenadas de
-  // respaldo están un poco corridas no queremos dejar al usuario sin cruzar.
-  const lineBlocksCrossing = lineStatus === 'OUTSIDE' && line.source === 'fence';
+  // La ubicación informa, no bloquea. Las geocercas miden ~700 m alrededor de
+  // la caseta, pero la fila vehicular se extiende varios kilómetros: con un
+  // candado aquí, quien estaba formado lejos de la caseta no podía iniciar su
+  // cruce. El servidor tampoco bloquea: clasifica cada reporte por ubicación.
 
   // Recomendación: la garita más rápida de la ciudad (comunidad + CBP + estimación)
   const [reco, setReco] = useState<any>(null);
@@ -372,14 +372,6 @@ export default function HomeScreen({ navigation }: Props) {
 
   const handleStartCrossing = async () => {
     if (!targetPortId || loadingStart || laneBlocked) return;
-    // Candado por geolocalización: bloquea SOLO con geocerca real confirmada.
-    if (lineBlocksCrossing) {
-      Alert.alert(
-        'No estás en la línea',
-        'Solo puedes iniciar el cruce cuando estás físicamente en la fila de esta garita.'
-      );
-      return;
-    }
     const laneLabel = LANE_LABEL[lane] || lane;
     const portDisplay = `${isPedwest ? 'PedWest' : port?.name} · ${laneLabel}`;
     setLoadingStart(true);
@@ -668,9 +660,9 @@ export default function HomeScreen({ navigation }: Props) {
             {!activeCrossing && targetPortId && !laneBlocked && (
               <View style={styles.section}>
                 <TouchableOpacity
-                  style={[styles.ctaBtn, (loadingStart || lineBlocksCrossing) && styles.ctaBtnDisabled]}
+                  style={[styles.ctaBtn, loadingStart && styles.ctaBtnDisabled]}
                   onPress={handleStartCrossing}
-                  disabled={loadingStart || lineBlocksCrossing}
+                  disabled={loadingStart}
                   activeOpacity={0.85}
                 >
                   {loadingStart ? (
@@ -679,9 +671,7 @@ export default function HomeScreen({ navigation }: Props) {
                     <>
                       <Text style={styles.ctaBtnText}>▶  Iniciar cruce por orden</Text>
                       <Text style={styles.ctaBtnSub}>
-                        {lineBlocksCrossing
-                          ? 'Disponible cuando estés en la línea'
-                          : `${isPedwest ? 'PedWest' : port?.name} · ${LANE_LABEL[lane] || lane}`}
+                        {`${isPedwest ? 'PedWest' : port?.name} · ${LANE_LABEL[lane] || lane}`}
                       </Text>
                     </>
                   )}

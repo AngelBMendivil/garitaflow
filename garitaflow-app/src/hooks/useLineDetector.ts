@@ -277,13 +277,16 @@ export function lineStatusLabel(d: LineDetection): { text: string; icon: string;
   switch (d.status) {
     case 'IN_LINE':
       return {
-        text: d.source === 'radius' ? 'Estás cerca de esta garita (aproximado)' : 'Estás en la línea de esta garita',
+        text: d.source === 'radius' ? 'Estás cerca de esta garita (aproximado)' : 'Estás en la zona de la caseta',
         icon: '🟢',
         tone: 'in',
       };
     case 'OUTSIDE':
+      // La geocerca cubre la zona de la caseta, no la fila completa: quien está
+      // formado a kilómetros también cae aquí, así que el texto no puede decir
+      // "no estás en la línea".
       return {
-        text: d.source === 'radius' ? 'No estás cerca de esta garita' : 'No estás en la línea de esta garita',
+        text: d.source === 'radius' ? 'No estás cerca de esta garita' : 'Aún no llegas a la zona de la caseta',
         icon: '⚪',
         tone: 'out',
       };

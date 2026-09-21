@@ -16,7 +16,6 @@ import { Colors } from '../../lib/colors';
 import { useCrossing } from '../../hooks/useCrossing';
 import { flowEventsApi } from '../../lib/api';
 import ShareCrossingButton from '../../components/ShareCrossingButton';
-import { useLineDetector } from '../../hooks/useLineDetector';
 import Logo from '../../components/Logo';
 import Confetti from '../../components/Confetti';
 
@@ -64,13 +63,6 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { crossingId, portName, laneLabel, portId: routePortId } = route.params;
   const { activeCrossing, formattedTime, endCrossing, loading } = useCrossing();
-  // `portName` sirve como pista para el respaldo por radio en garitas sin
-  // geocerca (el matcher compara subcadenas, así que "San Ysidro · General"
-  // resuelve igual que el code).
-  const line = useLineDetector(activeCrossing?.port_id ?? null, null, portName);
-  // Igual que en Home: solo la geocerca real bloquea. El radio aproximado
-  // informa pero no le quita al usuario la posibilidad de reportar.
-  const lineBlocked = line.status === 'OUTSIDE' && line.source === 'fence';
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
@@ -121,10 +113,6 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
   const handleQuickEvent = async (type: string) => {
     const pid = String(activeCrossing?.port_id || routePortId || '');
     if (!pid || sending) return;
-    if (lineBlocked) {
-      setFeedback('Solo puedes reportar cuando estás en la línea de esta garita.');
-      return;
-    }
     setSending(type);
     setFeedback(null);
     try {
@@ -242,10 +230,9 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
               style={[
                 styles.quickEvent,
                 sentType === e.type && styles.quickEventSent,
-                lineBlocked && styles.quickEventLocked,
               ]}
               onPress={() => handleQuickEvent(e.type)}
-              disabled={!!sending || lineBlocked}
+              disabled={!!sending}
               activeOpacity={0.75}
             >
               {sending === e.type ? (
@@ -259,12 +246,8 @@ export default function ActiveCrossingScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           ))}
           <TouchableOpacity
-            style={[styles.quickEvent, lineBlocked && styles.quickEventLocked]}
+            style={styles.quickEvent}
             onPress={() => {
-              if (lineBlocked) {
-                setFeedback('Solo puedes reportar cuando estás en la línea de esta garita.');
-                return;
-              }
               const pid = String(activeCrossing?.port_id || routePortId || '');
               if (!pid) {
                 setFeedback('No pudimos identificar la garita de este cruce. Reintenta en un momento.');
@@ -402,7 +385,6 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   quickEventSent: { borderColor: Colors.green, backgroundColor: '#E8F5EF' },
-  quickEventLocked: { opacity: 0.45 },
   quickEmoji: { fontSize: 28 },
   quickLabel: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
   feedbackBox: {
