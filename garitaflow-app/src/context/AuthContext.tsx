@@ -1,6 +1,6 @@
-﻿import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Storage } from '../lib/storage';
-import { authApi } from '../lib/api';
+import { authApi, setUnauthorizedHandler } from '../lib/api';
 import { User } from '../lib/types';
 
 interface AuthContextType {
@@ -55,7 +55,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 Storage.setOnboarded(true);
               }
             })
-            .catch(() => {/* token expirado */});
+            // Si el token venció, el 401 ya dispara el cierre de sesión vía
+            // setUnauthorizedHandler. Aquí solo quedan los fallos de red: se
+            // conserva la sesión en caché para no sacar a nadie por estar sin
+            // señal.
+            .catch(() => {});
+
+          // Renovación deslizante: cada apertura extiende la sesión otros 30
+          // días, así solo vuelve a pedir login quien no abrió la app en ese
+          // tiempo. Si el token ya venció, el 401 cierra la sesión vía el
+          // handler; si el servidor es una versión sin este endpoint (404) o
+          // no hay red, se ignora y la sesión actual sigue valiendo.
+          authApi.refresh()
+            .then(async ({ token: nuevo }) => {
+              if (!nuevo) return;
+              await Storage.setToken(nuevo);
+              setToken(nuevo);
+            })
+            .catch(() => {});
         }
       } finally {
         setIsLoading(false);
@@ -114,6 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setIsOnboardedState(false);
   };
+
+  // Sesión rechazada por el servidor → se cierra y la navegación regresa al
+  // login sola (user pasa a null). logout es estable en la práctica: solo usa
+  // setters de estado y Storage.
+  useEffect(() => {
+    setUnauthorizedHandler(() => { logout(); });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // Borra la cuenta en el servidor y limpia el estado local (sesión cerrada).
   const deleteAccount = async () => {

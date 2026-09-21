@@ -8,6 +8,16 @@ const BASE_URL = __DEV__
 
 const TIMEOUT_MS = 15000;
 
+// Se avisa a la app cuando el servidor rechaza la sesión (401 en una petición
+// autenticada). Antes el 401 se tragaba: la app seguía mostrando al usuario
+// como conectado, con su nombre y avatar en caché, pero todas las consultas
+// rebotaban y las pantallas quedaban vacías. Pasaba a los 30 días, al vencer
+// el token.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -62,6 +72,11 @@ async function request<T>(
       clearTimeout(timer);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        // Solo en peticiones autenticadas: en login/registro un 401 significa
+        // credenciales incorrectas, no sesión vencida.
+        if (res.status === 401 && auth && headers['Authorization']) {
+          onUnauthorized?.();
+        }
         throw new ApiError(res.status, body.error || `HTTP ${res.status}`);
       }
       return (await res.json()) as T;
@@ -102,6 +117,9 @@ export const authApi = {
     }, false),
 
   me: () => request<any>('/auth/me'),
+
+  // Renovación deslizante: devuelve un token nuevo con otros 30 días de vida.
+  refresh: () => request<{ token: string }>('/auth/refresh', { method: 'POST' }),
 
   // Borra la cuenta y todos los datos del usuario (requisito de Google Play).
   deleteAccount: () => request<{ ok: boolean }>('/auth/me', { method: 'DELETE' }),
