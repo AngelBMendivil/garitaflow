@@ -26,8 +26,8 @@ const fmtTime = (iso?: string | null) => {
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 };
 
-/** A partir de aquí el dato oficial de CBP se considera viejo (minutos). */
-const CBP_STALE_MIN = 90;
+/** Minutos a partir de los cuales el dato de CBP es viejo; mismo umbral que el servidor. */
+const CBP_STALE_MIN = 60;
 
 /** Antigüedad en minutos de una marca de tiempo. Null si no aplica. */
 const ageMinutes = (iso?: string | null): number | null => {
@@ -90,7 +90,8 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
     data.community?.avg_minutes ?? data.community?.wait_minutes ?? data.community?.wait;
   const hasComm = commRaw !== null && commRaw !== undefined;
   const commWait = hasComm ? Math.round(Number(commRaw)) : null;
-  const sample = data.community?.users ?? data.community?.sample_size ?? null;
+  // El servidor ahora cuenta cruces (no personas) dentro de la última hora.
+  const sample = data.community?.crossings ?? data.community?.users ?? data.community?.sample_size ?? null;
 
   // ─── Puertas / carriles abiertos (CBP) ─────────────────────────────────────
   const lanesOpen = data.cbp?.lanes_open;
@@ -106,11 +107,12 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
   const barPct = Math.max(4, Math.min(100, (wait / 90) * 100));
   const updated = fmtTime(data.calculated_at);
 
-  // La fórmula debe reflejar lo que de verdad entró en el cálculo: si el dato
-  // de CBP está viejo, anunciarlo como insumo vigente es engañoso.
-  const formula = cbpUsable
-    ? (hasComm ? 'CBP + histórico + comunidad' : 'CBP + histórico')
-    : (hasComm ? 'Histórico + comunidad' : 'Histórico');
+  // De dónde sale el número. El servidor resuelve la fuente con una sola regla
+  // (comunidad de la última hora → CBP de menos de 60 min → histórico) y manda
+  // la frase lista; si viene de una versión anterior del API, se aproxima.
+  const formula: string =
+    (data as any).basis_label ||
+    (hasComm ? 'Según la comunidad en la última hora' : cbpUsable ? 'Estimación oficial de CBP' : 'Promedio histórico a esta hora');
 
   return (
     <View style={styles.card}>
@@ -158,7 +160,7 @@ export default function FlowIndexCard({ data, loading, portName }: FlowIndexCard
                 <Text style={[styles.panelUnit, { color: Colors.commBlue }]}>min</Text>
               </View>
               <Text style={[styles.panelMeta, { color: Colors.commBlue }]}>
-                {sample ? `promedio de ${sample} usuario${sample === 1 ? '' : 's'}` : 'aún sin cronometrar'}
+                {sample ? `${sample} ${sample === 1 ? 'cruce' : 'cruces'} en la última hora` : 'aún sin cronometrar'}
               </Text>
             </View>
           )}
