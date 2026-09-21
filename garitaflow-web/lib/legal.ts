@@ -46,7 +46,7 @@ export const LEGAL = {
 export const PROVEEDORES = [
   ['Railway', 'Aloja los servidores y la base de datos.'],
   ['Expo', 'Entrega las notificaciones al dispositivo (token de notificaciones).'],
-  ['Google', 'Inicio de sesión con Google, si eliges esa opción. En el sitio web, además, analítica y publicidad.'],
+  ['Google', 'Inicio de sesión con Google, si eliges esa opción, y Firebase Cloud Messaging, que entrega las notificaciones en Android. En el sitio web, además, analítica y publicidad.'],
 ] as const
 
 /** Categorías de datos que la app realmente recolecta, según el backend. */
