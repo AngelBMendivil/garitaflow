@@ -2,11 +2,6 @@
  * Datos que aparecen en el aviso de privacidad, los términos y la página de
  * eliminación de cuenta. Centralizados aquí para no tener que editarlos en tres
  * lugares distintos.
- *
- * ⚠️ PENDIENTES antes de publicar en Google Play:
- *   - RESPONSABLE: nombre legal real (persona física o razón social).
- *   - CONTACTO_EMAIL: buzón que de verdad reciba (ver ImprovMX).
- *   - DOMICILIO: la LFPDPPP lo pide en el aviso de privacidad.
  */
 
 export const LEGAL = {
@@ -32,16 +27,17 @@ export const LEGAL = {
    */
   DOMICILIO: 'San Diego, California, Estados Unidos',
 
-  /** Fecha de última actualización mostrada al usuario. */
-  VIGENCIA: '16 de agosto de 2026',
+  /** Fecha de última actualización mostrada al usuario. Cambiarla con cada cambio de fondo. */
+  VIGENCIA: '20 de septiembre de 2026',
 } as const
 
 /**
- * Proveedores externos VERIFICADOS en el código (16-ago-2026). No agregar
+ * Proveedores externos VERIFICADOS en el código (20-sep-2026). No agregar
  * ninguno que no esté realmente en uso.
  *
- * Comprobado que NO existen en la app: SDK de publicidad, analítica móvil,
- * crash reporting (sin Firebase, Sentry, AdMob, Amplitude ni equivalentes).
+ * De Firebase solo se usa Cloud Messaging para entregar notificaciones. Sin
+ * Google Analytics de Firebase, Crashlytics, AdMob, Sentry ni equivalentes: si
+ * se agregan, hay que declararlos aquí y en Data Safety.
  */
 export const PROVEEDORES = [
   ['Railway', 'Aloja los servidores y la base de datos.'],
